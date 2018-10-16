@@ -8,10 +8,10 @@ from ssh_detector import SSHDetector
 scales = [1200, 1600]
 #scales = [600, 1200]
 t = 2
-detector = SSHDetector('./model/e2ef', 0)
+detector = SSHDetector('/home/ubuntu/camel/insightface/models/ssh/sshb', 0)
 
 
-f = '../sample-images/t1.jpg'
+f = '/home/ubuntu/dataset/filtered_stars/ZhangHe/img_11.jpg'
 if len(sys.argv)>1:
   f = sys.argv[1]
 img = cv2.imread(f)

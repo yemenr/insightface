@@ -23,7 +23,7 @@ import multiprocessing
 
 logger = logging.getLogger()
 
-
+               
 class FaceImageIter(io.DataIter):
 
     def __init__(self, batch_size, data_shape,
@@ -36,24 +36,24 @@ class FaceImageIter(io.DataIter):
         if path_imgrec:
             logging.info('loading recordio %s...',
                          path_imgrec)
-            path_imgidx = path_imgrec[0:-4]+".idx"
+            path_imgidx = path_imgrec[0:-4]+".idx"  #idx path
             self.imgrec = recordio.MXIndexedRecordIO(path_imgidx, path_imgrec, 'r')  # pylint: disable=redefined-variable-type
-            s = self.imgrec.read_idx(0)
+            s = self.imgrec.read_idx(0) #anchor
             header, _ = recordio.unpack(s)
             if header.flag>0:
-              print('header0 label', header.label)
+              print('header0 label', header.label) #[float(_id), float(_id+len(identities))]  last _id , last _id + len(ids)
               self.header0 = (int(header.label[0]), int(header.label[1]))
               #assert(header.flag==1)
-              self.imgidx = range(1, int(header.label[0]))
+              self.imgidx = range(1, int(header.label[0]))  #image index
               self.id2range = {}
-              self.seq_identity = range(int(header.label[0]), int(header.label[1]))
+              self.seq_identity = range(int(header.label[0]), int(header.label[1])) #identity sequence
               for identity in self.seq_identity:
                 s = self.imgrec.read_idx(identity)
                 header, _ = recordio.unpack(s)
                 a,b = int(header.label[0]), int(header.label[1])
-                self.id2range[identity] = (a,b)
+                self.id2range[identity] = (a,b) #identity range
                 count = b-a
-              print('id2range', len(self.id2range))
+              print('id2range', len(self.id2range)) #num of identities
             else:
               self.imgidx = list(self.imgrec.keys)
             if shuffle:
@@ -69,8 +69,8 @@ class FaceImageIter(io.DataIter):
           self.mean = np.array(self.mean, dtype=np.float32).reshape(1,1,3)
           self.nd_mean = mx.nd.array(self.mean).reshape((1,1,3))
 
-        self.check_data_shape(data_shape)
-        self.provide_data = [(data_name, (batch_size,) + data_shape)]
+        self.check_data_shape(data_shape)   #check datashape
+        self.provide_data = [(data_name, (batch_size,) + data_shape)]   #[('data',(b,c,h,w))]
         self.batch_size = batch_size
         self.data_shape = data_shape
         self.shuffle = shuffle
@@ -78,7 +78,7 @@ class FaceImageIter(io.DataIter):
         self.rand_mirror = rand_mirror
         print('rand_mirror', rand_mirror)
         self.cutoff = cutoff
-        self.provide_label = [(label_name, (batch_size,))]
+        self.provide_label = [(label_name, (batch_size,))]  #[('softmax_label',(b,))]
         #print(self.provide_label[0][1])
         self.cur = 0
         self.nbatch = 0
@@ -108,7 +108,7 @@ class FaceImageIter(io.DataIter):
             self.cur += 1
             if self.imgrec is not None:
               s = self.imgrec.read_idx(idx)
-              header, img = recordio.unpack(s)
+              header, img = recordio.unpack(s)  #unpack sample
               label = header.label
               if not isinstance(label, numbers.Number):
                 label = label[0]
@@ -173,14 +173,14 @@ class FaceImageIter(io.DataIter):
         self.nbatch+=1
         batch_size = self.batch_size
         c, h, w = self.data_shape
-        batch_data = nd.empty((batch_size, c, h, w))
+        batch_data = nd.empty((batch_size, c, h, w))    #empty data batch
         if self.provide_label is not None:
-          batch_label = nd.empty(self.provide_label[0][1])
+          batch_label = nd.empty(self.provide_label[0][1])  #empty label batch
         i = 0
         try:
             while i < batch_size:
                 label, s, bbox, landmark = self.next_sample()
-                _data = self.imdecode(s)
+                _data = self.imdecode(s)    #decode img
                 if self.rand_mirror:
                   _rd = random.randint(0,1)
                   if _rd==1:
@@ -219,7 +219,7 @@ class FaceImageIter(io.DataIter):
             if i<batch_size:
                 raise StopIteration
 
-        return io.DataBatch([batch_data], [batch_label], batch_size - i)
+        return io.DataBatch([batch_data], [batch_label], batch_size - i)    #batch_size-i batch pad
 
     def check_data_shape(self, data_shape):
         """Checks if the input data shape is valid"""

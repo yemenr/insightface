@@ -84,7 +84,8 @@ class LossValueMetric(mx.metric.EvalMetric):
 def parse_args():
   parser = argparse.ArgumentParser(description='Train face network')
   # general
-  parser.add_argument('--data-dir', default='', help='training set directory')
+  parser.add_argument('--id-data-dir', default='', help='identity training set directory')
+  parser.add_argument('--seq-data-dir', default='', help='sequence training set directory')
   parser.add_argument('--prefix', default='../model/model', help='directory to save model.')
   parser.add_argument('--pretrained', default='', help='pretrained model to load')
   parser.add_argument('--ckpt', type=int, default=1, help='checkpoint saving option. 0: discard saving. 1: save when necessary. 2: always save')
@@ -174,7 +175,7 @@ def get_symbol(args, arg_params, aux_params):
     embedding = fresnet.get_symbol(args.emb_size, args.num_layers, 
         version_se=args.version_se, version_input=args.version_input, 
         version_output=args.version_output, version_unit=args.version_unit,
-        version_act=args.version_act)
+        version_act=args.version_act)    #resnet get_symbol
   all_label = mx.symbol.Variable('softmax_label')
   gt_label = all_label
   extra_loss = None
@@ -191,7 +192,7 @@ def get_symbol(args, arg_params, aux_params):
                           weight = _weight,
                           beta=args.beta, margin=args.margin, scale=args.scale,
                           beta_min=args.beta_min, verbose=1000, name='fc7')
-  elif args.loss_type==2:
+  elif args.loss_type==2: #cosine face
     s = args.margin_s
     m = args.margin_m
     assert(s>0.0)
@@ -202,7 +203,7 @@ def get_symbol(args, arg_params, aux_params):
     s_m = s*m
     gt_one_hot = mx.sym.one_hot(gt_label, depth = args.num_classes, on_value = s_m, off_value = 0.0)
     fc7 = fc7-gt_one_hot
-  elif args.loss_type==4:
+  elif args.loss_type==4: #arcface
     s = args.margin_s
     m = args.margin_m
     assert s>0.0
@@ -295,27 +296,27 @@ def train_net(args):
       print('use cpu')
     else:
       print('gpu num:', len(ctx))
-    prefix = args.prefix
-    prefix_dir = os.path.dirname(prefix)
+    prefix = args.prefix    #mxnet model prefix
+    prefix_dir = os.path.dirname(prefix)    #model dir
     if not os.path.exists(prefix_dir):
       os.makedirs(prefix_dir)
     end_epoch = args.end_epoch
     args.ctx_num = len(ctx)
-    args.num_layers = int(args.network[1:])
+    args.num_layers = int(args.network[1:])    #network layers count.
     print('num_layers', args.num_layers)
     if args.per_batch_size==0:
       args.per_batch_size = 128
-    args.batch_size = args.per_batch_size*args.ctx_num
+    args.batch_size = args.per_batch_size*args.ctx_num    #total batch_size
     args.rescale_threshold = 0
     args.image_channel = 3
 
-    os.environ['BETA'] = str(args.beta)
-    data_dir_list = args.data_dir.split(',')
-    assert len(data_dir_list)==1
-    data_dir = data_dir_list[0]
+    os.environ['BETA'] = str(args.beta)    #sphere face params
+    id_data_dir_list = args.id_data_dir.split(',')  #support multiple dataset
+    assert len(id_data_dir_list)==1    #multiple ?
+    id_data_dir = id_data_dir_list[0]
     path_imgrec = None
     path_imglist = None
-    prop = face_image.load_property(data_dir)
+    prop = face_image.load_property(id_data_dir)    #classes_num image_size
     args.num_classes = prop.num_classes
     image_size = prop.image_size
     args.image_h = image_size[0]
@@ -323,9 +324,9 @@ def train_net(args):
     print('image_size', image_size)
     assert(args.num_classes>0)
     print('num_classes', args.num_classes)
-    path_imgrec = os.path.join(data_dir, "train.rec")
+    path_imgrec = os.path.join(id_data_dir, "train.rec")    #imgrec info file path
 
-    if args.loss_type==1 and args.num_classes>20000:
+    if args.loss_type==1 and args.num_classes>20000:    #sphere face
       args.beta_freeze = 5000
       args.gamma = 0.06
 
@@ -334,13 +335,14 @@ def train_net(args):
     mean = None
 
     begin_epoch = 0
-    base_lr = args.lr
-    base_wd = args.wd
-    base_mom = args.mom
+    base_lr = args.lr    #start learning rate 0.1
+    base_wd = args.wd    #weight decay factor 0.0005
+    base_mom = args.mom  #bn momentum
     if len(args.pretrained)==0:
       arg_params = None
       aux_params = None
-      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)
+      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)    #dict of name to arg_params net’s weights
+                                                                                #dict of name to net’s auxiliary states
     else:
       vec = args.pretrained.split(',')
       print('loading', vec)
@@ -385,7 +387,7 @@ def train_net(args):
     ver_list = []
     ver_name_list = []
     for name in args.target.split(','):
-      path = os.path.join(data_dir,name+".bin")
+      path = os.path.join(id_data_dir,name+".bin")
       if os.path.exists(path):
         data_set = verification.load_bin(path, image_size)
         ver_list.append(data_set)

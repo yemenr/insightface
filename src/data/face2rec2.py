@@ -33,6 +33,7 @@ from easydict import EasyDict as edict
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
 import face_preprocess
 import face_image
+import pdb
 
 try:
     import multiprocessing
@@ -54,12 +55,12 @@ def read_list(path_in):
             item.flag = 0
             item.image_path, label, item.bbox, item.landmark, item.aligned = face_preprocess.parse_lst_line(line)
             if not item.aligned and item.landmark is None:
-              #print('ignore line', line)
+              print('ignore line', line)
               continue
-            item.id = _id
+            item.id = _id   #item index
             item.label = [label, item.aligned]
             yield item
-            if label!=last[0]:
+            if label!=last[0]:  #save (label,id ) relation info. endding of each class
               if last[1]>=0:
                 identities.append( (last[1], _id) )
               last[0] = label
@@ -69,7 +70,7 @@ def read_list(path_in):
         item = edict()
         item.flag = 2
         item.id = 0
-        item.label = [float(_id), float(_id+len(identities))]
+        item.label = [float(_id), float(_id+len(identities))]   #last _id , last _id + len(ids)
         yield item
         for identity in identities:
           item = edict()
@@ -77,7 +78,7 @@ def read_list(path_in):
           item.id = _id
           _id+=1
           item.label = [float(identity[0]), float(identity[1])]
-          yield item
+          yield item    # each endding item of each class
 
 
 
@@ -87,7 +88,7 @@ def image_encode(args, i, item, q_out):
     if item.flag==0:
       fullpath = item.image_path
       header = mx.recordio.IRHeader(item.flag, item.label, item.id, 0)
-      #print('write', item.flag, item.id, item.label)
+      #print('write1', item.flag, item.id, item.label)
       if item.aligned:
         with open(fullpath, 'rb') as fin:
             img = fin.read()
@@ -101,7 +102,7 @@ def image_encode(args, i, item, q_out):
         q_out.put((i, s, oitem))
     else: 
       header = mx.recordio.IRHeader(item.flag, item.label, item.id, 0)
-      #print('write', item.flag, item.id, item.label)
+      print('write2', item.flag, item.id, item.label)   #anchor + class info saved in IRHeader
       s = mx.recordio.pack(header, '')
       q_out.put((i, s, oitem))
 
@@ -250,6 +251,8 @@ if __name__ == '__main__':
                     cnt = 0
                     pre_time = time.time()
                     for i, item in enumerate(image_list):
+                        if item.id == 0:
+                            print("*****************************")
                         image_encode(args, i, item, q_out)
                         if q_out.empty():
                             continue
