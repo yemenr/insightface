@@ -6,6 +6,7 @@ import mxnet as mx
 
 
 # define metric of accuracy
+'''
 class Accuracy(mx.metric.EvalMetric):
     def __init__(self, num=None):
         super(Accuracy, self).__init__('accuracy', num)
@@ -24,7 +25,6 @@ class Accuracy(mx.metric.EvalMetric):
         self.sum_metric += (pred_label.flat == label.flat).sum()
         self.num_inst += len(pred_label.flat)
 
-
 # define some metric of center_loss
 class CenterLossMetric(mx.metric.EvalMetric):
     def __init__(self):
@@ -33,6 +33,7 @@ class CenterLossMetric(mx.metric.EvalMetric):
     def update(self, labels, preds):
         self.sum_metric += preds[1].asnumpy()[0]
         self.num_inst += 1
+'''
 
 
 # see details:

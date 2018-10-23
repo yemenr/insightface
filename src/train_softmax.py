@@ -31,16 +31,13 @@ import fnasnet
 import spherenet
 import verification
 import sklearn
-#sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
-#import center_loss
-
+sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
+import center_loss
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-
 args = None
-
 
 class AccMetric(mx.metric.EvalMetric):
   def __init__(self):
@@ -70,17 +67,30 @@ class LossValueMetric(mx.metric.EvalMetric):
   def __init__(self):
     self.axis = 1
     super(LossValueMetric, self).__init__(
-        'lossvalue', axis=self.axis,
+        'ceLoss', axis=self.axis,
         output_names=None, label_names=None)
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[-1].asnumpy()[0]
+    loss = preds[-1].asnumpy()[0]#use ce loss output
     self.sum_metric += loss
     self.num_inst += 1.0
-    gt_label = preds[-2].asnumpy()
+    gt_label = preds[-3].asnumpy()
     #print(gt_label)
 
+class CenterLossValueMetric(mx.metric.EvalMetric):
+  def __init__(self):
+    self.axis = 1
+    super(LossValueMetric, self).__init__(
+        'centerLoss', axis=self.axis,
+        output_names=None, label_names=None)
+    self.losses = []
+
+  def update(self, labels, preds):
+    loss = preds[-2].asnumpy()[0]#use center loss output
+    self.sum_metric += loss
+    self.num_inst += 1.0
+    
 def parse_args():
   parser = argparse.ArgumentParser(description='Train face network')
   # general
@@ -272,15 +282,21 @@ def get_symbol(args, arg_params, aux_params):
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
   out_list = [mx.symbol.BlockGrad(embedding)]
-  softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid')
+  softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid', grad_scale=0.95)#cross entropy loss
   out_list.append(softmax)
-  if args.ce_loss:
-    #ce_loss = mx.symbol.softmax_cross_entropy(data=fc7, label = gt_label, name='ce_loss')/args.per_batch_size
+  
+  # center loss
+  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=num_classes, alpha=0.05, scale=0.05, batchsize=args.batch_size)
+  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
+  out_list.append(center_loss)
+  
+  # loss display
+  if args.ce_loss:  #output ce loss
     body = mx.symbol.SoftmaxActivation(data=fc7)
     body = mx.symbol.log(body)
     _label = mx.sym.one_hot(gt_label, depth = args.num_classes, on_value = -1.0, off_value = 0.0)
     body = body*_label
-    ce_loss = mx.symbol.sum(body)/args.per_batch_size
+    ce_loss = mx.symbol.sum(body)/args.batch_size
     out_list.append(mx.symbol.BlockGrad(ce_loss))
   out = mx.symbol.Group(out_list)
   return (out, arg_params, aux_params)
@@ -341,8 +357,10 @@ def train_net(args):
     if len(args.pretrained)==0:
       arg_params = None
       aux_params = None
-      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)    #dict of name to arg_params net’s weights
-                                                                                #dict of name to net’s auxiliary states
+      #dict of name to arg_params net weights
+      #dict of name to net auxiliary states
+      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)
+      
     else:
       vec = args.pretrained.split(',')
       print('loading', vec)
@@ -369,9 +387,14 @@ def train_net(args):
 
     metric1 = AccMetric()
     eval_metrics = [mx.metric.create(metric1)]
+    
     if args.ce_loss:
       metric2 = LossValueMetric()
       eval_metrics.append( mx.metric.create(metric2) )
+      
+      # center loss
+      metric3 = CenterLossValueMetric()
+      eval_metrics.append( mx.metric.create(metric3) )
 
     if args.network[0]=='r' or args.network[0]=='y':
       initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="out", magnitude=2) #resnet style

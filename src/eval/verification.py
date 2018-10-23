@@ -182,15 +182,15 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, pca = 0):
     return tpr, fpr, accuracy, val, val_std, far
 
 def load_bin(path, image_size):
-  bins, issame_list = pickle.load(open(path, 'rb'))
+  bins, issame_list = pickle.load(open(path, 'rb'))#img bin & issame_list[6000]
   data_list = []
   for flip in [0,1]:
     data = nd.empty((len(issame_list)*2, 3, image_size[0], image_size[1]))
-    data_list.append(data)
+    data_list.append(data)#empty data_list
   for i in xrange(len(issame_list)*2):
     _bin = bins[i]
-    img = mx.image.imdecode(_bin)
-    img = nd.transpose(img, axes=(2, 0, 1))
+    img = mx.image.imdecode(_bin)#decoded img  r g b channels
+    img = nd.transpose(img, axes=(2, 0, 1))#c h w format
     for flip in [0,1]:
       if flip==1:
         img = mx.ndarray.flip(data=img, axis=2)
@@ -198,7 +198,7 @@ def load_bin(path, image_size):
     if i%1000==0:
       print('loading bin', i)
   print(data_list[0].shape)
-  return (data_list, issame_list)
+  return (data_list, issame_list)#flipped img_list and issame_list
 
 def test(data_set, mx_model, batch_size, nfolds=10, data_extra = None, label_shape = None):
   print('testing verification..')
