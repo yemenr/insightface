@@ -172,7 +172,6 @@ class FaceImageIter(io.DataIter):
 
 
     def next(self):
-        pdb.set_trace()
         if not self.is_init:
             self.reset()
             self.is_init = True

@@ -342,7 +342,7 @@ def train_net(args):
     assert(args.id_classes_num>0)
     print('id_classes_num', args.id_classes_num)
     #seq dataset
-    prop = face_image.load_property(seq_data_dir)    #classes_num image_size
+    prop = face_image.load_property(args.seq_data_dir)    #classes_num image_size
     args.seq_classes_num = prop.num_classes    
     print('seq_classes_num', args.seq_classes_num)
     
