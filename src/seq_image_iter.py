@@ -20,6 +20,7 @@ from mxnet import recordio
 sys.path.append(os.path.join(os.path.dirname(__file__), 'common'))
 import face_preprocess
 import multiprocessing
+import pdb
 
 logger = logging.getLogger()
 
@@ -29,12 +30,12 @@ class FaceImageIter(io.DataIter):
     def __init__(self, batch_size, data_shape, path_imgrec,
                  shuffle=False, aug_list=None, mean = None,
                  rand_mirror = False, cutoff = 0,
-                 ctx_num = 1, data_name='data', label_name='seq_label', **kwargs):
+                 ctx_num = 1, data_name='data', label_name='softmax_label', **kwargs):
         super(FaceImageIter, self).__init__()
         logging.info('loading recordio %s...', path_imgrec)
         
         self.imgrecs = []
-        self.head0s = []
+        self.header0s = []
         self.imgidxes = []
         self.id2ranges = []
         self.seq_identities = []
@@ -44,16 +45,16 @@ class FaceImageIter(io.DataIter):
         
         for k in range(2):
             path_imgidx = path_imgrec[k][0:-4]+".idx"  #idx path
-            self.imgrecs[k] = recordio.MXIndexedRecordIO(path_imgidx, path_imgrec[k], 'r')  # pylint: disable=redefined-variable-type
+            self.imgrecs.append(recordio.MXIndexedRecordIO(path_imgidx, path_imgrec[k], 'r'))  # pylint: disable=redefined-variable-type
             s = self.imgrecs[k].read_idx(0) #anchor
             header, _ = recordio.unpack(s)
             if header.flag>0:
                 print('header0 label', header.label) #[float(_id), float(_id+len(identities))]  last _id , last _id + len(ids)
-                self.header0s[k] = (int(header.label[0]), int(header.label[1]))
+                self.header0s.append((int(header.label[0]), int(header.label[1])))
                 #assert(header.flag==1)
-                self.imgidxes[k] = range(1, int(header.label[0]))  #image index
-                self.id2ranges[k] = {}
-                self.seq_identities[k] = range(int(header.label[0]), int(header.label[1])) #identity sequence
+                self.imgidxes.append(range(1, int(header.label[0])))  #image index
+                self.id2ranges.append({})
+                self.seq_identities.append(range(int(header.label[0]), int(header.label[1]))) #identity sequence
                 for identity in self.seq_identities[k]:
                     s = self.imgrecs[k].read_idx(identity)
                     header, _ = recordio.unpack(s)
@@ -62,13 +63,13 @@ class FaceImageIter(io.DataIter):
                     count = b-a
                 print('id2range', len(self.id2ranges[k])) #num of identities
             else:
-              self.imgidxes[k] = list(self.imgrecs[k].keys)
+              self.imgidxes.append(list(self.imgrecs[k].keys))
             if shuffle:
-              self.seqs[k] = self.imgidxes[k]
-              self.oseqs[k] = self.imgidxes[k]
+              self.seqs.append(self.imgidxes[k])
+              self.oseqs.append(self.imgidxes[k])
               print(len(self.seqs[k]))
             else:
-              self.seqs[k] = None
+              self.seqs.append(None)
 
         self.mean = mean
         self.nd_mean = None
@@ -169,6 +170,7 @@ class FaceImageIter(io.DataIter):
 
 
     def next(self):
+        pdb.set_trace()
         if not self.is_init:
             self.reset()
             self.is_init = True

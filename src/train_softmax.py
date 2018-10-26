@@ -93,6 +93,7 @@ def parse_args():
   parser.add_argument('--max-steps', type=int, default=0, help='max training batches')
   parser.add_argument('--end-epoch', type=int, default=100000, help='training epoch size.')
   parser.add_argument('--network', default='r50', help='specify network')
+  parser.add_argument('--image-size', default='112,112', help='specify input image height and width')
   parser.add_argument('--version-se', type=int, default=0, help='whether to use se in network')
   parser.add_argument('--version-input', type=int, default=1, help='network input config')
   parser.add_argument('--version-output', type=str, default='E', help='network embedding output config')
@@ -123,6 +124,7 @@ def parse_args():
   parser.add_argument('--scale', type=float, default=0.9993, help='param for sphere')
   parser.add_argument('--rand-mirror', type=int, default=1, help='if do random mirror in training')
   parser.add_argument('--cutoff', type=int, default=0, help='cut off aug')
+  parser.add_argument('--color', type=int, default=0, help='color jittering aug')
   parser.add_argument('--target', type=str, default='lfw,cfp_fp,agedb_30', help='verification targets')
   parser.add_argument('--ce-loss', default=False, action='store_true', help='if output ce loss')
   args = parser.parse_args()
@@ -317,7 +319,10 @@ def train_net(args):
     path_imglist = None
     prop = face_image.load_property(data_dir)
     args.num_classes = prop.num_classes
-    image_size = prop.image_size
+    #image_size = prop.image_size
+    image_size = [int(x) for x in args.image_size.split(',')]
+    assert len(image_size)==2
+    assert image_size[0]==image_size[1]
     args.image_h = image_size[0]
     args.image_w = image_size[1]
     print('image_size', image_size)
@@ -363,6 +368,7 @@ def train_net(args):
         rand_mirror          = args.rand_mirror,
         mean                 = mean,
         cutoff               = args.cutoff,
+        color_jittering      = args.color,
     )
 
     metric1 = AccMetric()

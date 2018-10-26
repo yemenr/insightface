@@ -282,11 +282,11 @@ def get_symbol(args, arg_params, aux_params):
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
   out_list = [mx.symbol.BlockGrad(embedding)]
-  softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid', grad_scale=0.95)#cross entropy loss
+  softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid', grad_scale=0.995)#cross entropy loss
   out_list.append(softmax)
   
   # center loss
-  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=args.num_classes, alpha=0.05, scale=0.05, batchsize=args.per_batch_size)
+  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=args.num_classes, alpha=0.05, scale=0.005, batchsize=args.per_batch_size)
   center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
   out_list.append(center_loss)
   
