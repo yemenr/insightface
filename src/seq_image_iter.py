@@ -30,7 +30,8 @@ class FaceImageIter(io.DataIter):
     def __init__(self, batch_size, data_shape, path_imgrec,
                  shuffle=False, aug_list=None, mean = None,
                  rand_mirror = False, cutoff = 0,
-                 ctx_num = 1, data_name='data', label_name='softmax_label', **kwargs):
+                 ctx_num = 1, classes_num = (0,0),
+                 data_name='data', label_name='softmax_label', **kwargs):
         super(FaceImageIter, self).__init__()
         logging.info('loading recordio %s...', path_imgrec)
         
@@ -42,6 +43,7 @@ class FaceImageIter(io.DataIter):
         self.seqs = []
         self.oseqs = []
         self.curs = [0,0]
+        self.classes_num = classes_num
         
         for k in range(2):
             path_imgidx = path_imgrec[k][0:-4]+".idx"  #idx path
@@ -181,7 +183,7 @@ class FaceImageIter(io.DataIter):
         batch_data = nd.empty((batch_size, c, h, w))    #empty data batch
         if self.provide_label is not None:
             batch_label = nd.empty(self.provide_label[0][1])  #empty label batch
-        
+        ii = 0
         # ctx0: identity data , seq data
         # ctx1: identity data , seq data
         # ...
@@ -189,8 +191,11 @@ class FaceImageIter(io.DataIter):
             for cc in range(self.ctx_num):
                 for kk in range(2):
                     i = 0
-                    while (i < batch_size/self.ctx_num):
+                    while (i < batch_size//self.ctx_num//2):
                         label, s, bbox, landmark = self.next_sample(kk)
+                        #convert seq label
+                        if label < 0:
+                            label = (self.classes_num[0]-1-label)
                         _data = self.imdecode(s)    #decode img
                         if self.rand_mirror:
                             _rd = random.randint(0,1)
@@ -223,14 +228,15 @@ class FaceImageIter(io.DataIter):
                         for datum in data:
                             assert i < batch_size/self.ctx_num, 'Batch size must be multiples of augmenter output length'
                             #print(datum.shape)
-                            batch_data[i][:] = self.postprocess_data(datum)
-                            batch_label[i][:] = label
+                            batch_data[ii][:] = self.postprocess_data(datum)
+                            batch_label[ii][:] = label
                             i += 1
+                            ii += 1
         except StopIteration:
-            if i<batch_size/self.ctx_num:
+            if ii<batch_size:
                 raise StopIteration
 
-        return io.DataBatch([batch_data], [batch_label], batch_size - i)    #batch_size-i batch pad
+        return io.DataBatch([batch_data], [batch_label], batch_size - ii)    #batch_size-i batch pad
 
     def check_data_shape(self, data_shape):
         """Checks if the input data shape is valid"""
