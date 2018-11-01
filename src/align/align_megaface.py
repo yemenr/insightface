@@ -189,6 +189,19 @@ def main(args):
                     warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
                     nrof[2]+=1
                     #print('2',target_file)
+                    
+                 if warped is None and fimage.bbox is None:
+                  _minsize = img.shape[0]//4
+                  bounding_boxes, points = detect_face.detect_face(img, _minsize, pnet, rnet, onet, threshold, factor)
+                  if (bounding_boxes.shape[0]==1):
+                    _box = bounding_boxes[0]
+                    if _box[4]>=0.3:
+                      dst = points[:, 0].reshape( (2,5) ).T
+                      tform = trans.SimilarityTransform()
+                      tform.estimate(dst, src)
+                      M = tform.params[0:2,:]
+                      warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                      nrof[2]+=1   
 
                 if warped is None:
                   roi = np.zeros( (4,), dtype=np.int32)

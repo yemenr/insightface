@@ -61,35 +61,48 @@ class AccMetric(mx.metric.EvalMetric):
         label = label.astype('int32').flatten()
         assert label.shape==pred_label.shape
         self.sum_metric += (pred_label.flat == label.flat).sum()
-        self.num_inst += len(pred_label.flat)
+        self.num_inst += len(pred_label.flat)/2
 
 class LossValueMetric(mx.metric.EvalMetric):
   def __init__(self):
     self.axis = 1
     super(LossValueMetric, self).__init__(
-        'ceLoss', axis=self.axis,
+        'identityLoss', axis=self.axis,
         output_names=None, label_names=None)
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[-1].asnumpy()[0]#use ce loss output
+    loss = preds[2].asnumpy()[0]/args.batch_size#use ce loss output
     self.sum_metric += loss
     self.num_inst += 1.0
-    gt_label = preds[-3].asnumpy()
+    #gt_label = preds[-3].asnumpy()
     #print(gt_label)
 
-class CenterLossValueMetric(mx.metric.EvalMetric):
+class AuxiliaryLossValueMetric(mx.metric.EvalMetric):
   def __init__(self):
     self.axis = 1
-    super(CenterLossValueMetric, self).__init__(
-        'centerLoss', axis=self.axis,
+    super(AuxiliaryLossValueMetric, self).__init__(
+        'auxiliaryLoss', axis=self.axis,
         output_names=None, label_names=None)
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[-2].asnumpy()[0]#use center loss output
+    loss = preds[4].asnumpy()[0]/args.batch_size#use center loss output
     self.sum_metric += loss
     self.num_inst += 1.0
+    
+class SequenceLossValueMetric(mx.metric.EvalMetric):
+  def __init__(self):
+    self.axis = 1
+    super(SequenceLossValueMetric, self).__init__(
+        'sequenceLoss', axis=self.axis,
+        output_names=None, label_names=None)
+    self.losses = []
+
+  def update(self, labels, preds):
+    loss = preds[3].asnumpy()[0]/args.batch_size#use sequence loss output
+    self.sum_metric += loss
+    self.num_inst += 1.0    
     
 def parse_args():
   parser = argparse.ArgumentParser(description='Train face network')
@@ -136,6 +149,8 @@ def parse_args():
   parser.add_argument('--cutoff', type=int, default=0, help='cut off aug')
   parser.add_argument('--target', type=str, default='lfw,cfp_fp,agedb_30', help='verification targets')
   parser.add_argument('--ce-loss', default=False, action='store_true', help='if output ce loss')
+  parser.add_argument('--chief_loss_factor', type=float, help='chief loss factor.', default=0.96)
+  parser.add_argument('--identity_loss_factor', type=float, help='identity loss factor.', default=0.96)
   args = parser.parse_args()
   return args
 
@@ -186,7 +201,7 @@ def get_symbol(args, arg_params, aux_params):
         version_se=args.version_se, version_input=args.version_input, 
         version_output=args.version_output, version_unit=args.version_unit,
         version_act=args.version_act)    #resnet get_symbol
-  all_label = mx.symbol.Variable('softmax_label')
+  all_label = mx.symbol.Variable('seq_label')
   gt_label = all_label
   extra_loss = None
   _weight = mx.symbol.Variable("fc7_weight", shape=(args.id_classes_num, args.emb_size), lr_mult=args.fc7_lr_mult, wd_mult=args.fc7_wd_mult)
@@ -281,23 +296,38 @@ def get_symbol(args, arg_params, aux_params):
         gt_one_hot = mx.sym.one_hot(gt_label, depth = args.id_classes_num, on_value = 1.0, off_value = 0.0)
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
-  out_list = [mx.symbol.BlockGrad(embedding)]
-  softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid', grad_scale=0.995)#cross entropy loss
-  out_list.append(softmax)
+  out_list = [mx.symbol.BlockGrad(embedding)] 
   
-  # center loss
-  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=0.005, batchsize=args.per_batch_size)
+  # split logits and labels into identity dataset and sequence dataset
+  idLogits, seqLogits = mx.symbol.split(fc7,num_outputs=2,axis=0)
+  idLabels, seqLabels = mx.symbol.split(gt_label,num_outputs=2,axis=0)
+  
+  # softmax outputs
+  softmax = mx.symbol.log_softmax(data=fc7)
+  out_list.append(mx.symbol.BlockGrad(softmax))
+  
+  # define the cross entropy added LSR parts
+  # softmax ce loss -- identity_loss  
+  body = mx.symbol.log_softmax(data=idLogits)
+  _label = mx.sym.one_hot(idLabels, depth = args.id_classes_num, on_value = -1.0, off_value = 0.0)
+  body = body*_label
+  ce_loss_ = mx.symbol.sum(body)#/args.per_batch_size
+  ce_loss = mx.symbol.MakeLoss(name='identity_loss', data=ce_loss_, normalization='valid',grad_scale=args.identity_loss_factor*args.chief_loss_factor)
+  out_list.append(ce_loss)
+  
+  # label smoothing regularization loss
+  sequence_loss_ = -mx.symbol.sum(mx.symbol.mean(mx.symbol.log_softmax(seqLogits),axis=1)) # warning
+  sequence_loss = mx.symbol.MakeLoss(name='sequence_loss', data=sequence_loss_, normalization='valid',grad_scale=(1-args.identity_loss_factor)*args.chief_loss_factor)  
+  out_list.append(sequence_loss)
+  
+  # auxiliary loss
+  ## center loss
+  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
   center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
   out_list.append(center_loss)
   
-  # loss display
-  if args.ce_loss:  #output ce loss
-    body = mx.symbol.SoftmaxActivation(data=fc7)
-    body = mx.symbol.log(body)
-    _label = mx.sym.one_hot(gt_label, depth = args.id_classes_num, on_value = -1.0, off_value = 0.0)
-    body = body*_label
-    ce_loss = mx.symbol.sum(body)/args.per_batch_size
-    out_list.append(mx.symbol.BlockGrad(ce_loss))
+  ## dsa loss
+  
   out = mx.symbol.Group(out_list)
   return (out, arg_params, aux_params)
 
@@ -379,6 +409,8 @@ def train_net(args):
     model = mx.mod.Module(
         context       = ctx,
         symbol        = sym,
+        data_names = ('data',), 
+        label_names = ('seq_label',),
     )
     val_dataiter = None
 
@@ -391,7 +423,9 @@ def train_net(args):
         mean                 = mean,
         cutoff               = args.cutoff,
         ctx_num              = args.ctx_num,
-        classes_num          = (args.id_classes_num, args.seq_classes_num)
+        classes_num          = (args.id_classes_num, args.seq_classes_num),
+        data_name            ='data', 
+        label_name           ='seq_label'
     )
 
     metric1 = AccMetric()
@@ -401,9 +435,14 @@ def train_net(args):
       metric2 = LossValueMetric()
       eval_metrics.append( mx.metric.create(metric2) )
       
-      # center loss
-      metric3 = CenterLossValueMetric()
+      # sequence loss
+      metric3 = SequenceLossValueMetric()
       eval_metrics.append( mx.metric.create(metric3) )
+      
+      # auxiliary loss
+      metric4 = AuxiliaryLossValueMetric()
+      eval_metrics.append( mx.metric.create(metric4) )
+      
 
     if args.network[0]=='r' or args.network[0]=='y':
       initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="out", magnitude=2) #resnet style
