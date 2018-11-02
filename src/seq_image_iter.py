@@ -98,7 +98,7 @@ class FaceImageIter(io.DataIter):
     def reset(self):
         """Resets the iterator to the beginning of the data."""
         print('call reset()')
-        self.cur = [0,0]
+        self.curs = [0,0]
         if self.shuffle:
             for k in range(2):
                 random.shuffle(self.seqs[k])

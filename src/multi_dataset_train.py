@@ -72,7 +72,7 @@ class LossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[2].asnumpy()[0]/args.batch_size#use ce loss output
+    loss = preds[2].asnumpy()[0]/args.per_batch_size#use ce loss output
     self.sum_metric += loss
     self.num_inst += 1.0
     #gt_label = preds[-3].asnumpy()
@@ -87,7 +87,7 @@ class AuxiliaryLossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[4].asnumpy()[0]/args.batch_size#use center loss output
+    loss = preds[4].asnumpy()[0]#/args.per_batch_size#use center loss output
     self.sum_metric += loss
     self.num_inst += 1.0
     
@@ -100,7 +100,7 @@ class SequenceLossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[3].asnumpy()[0]/args.batch_size#use sequence loss output
+    loss = preds[3].asnumpy()[0]/args.per_batch_size#use sequence loss output
     self.sum_metric += loss
     self.num_inst += 1.0    
     
@@ -322,8 +322,9 @@ def get_symbol(args, arg_params, aux_params):
   
   # auxiliary loss
   ## center loss
-  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
-  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
+  nembedding = mx.symbol.L2Normalization(embedding, mode='instance')
+  center_loss_ = mx.symbol.Custom(data=nembedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
+  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_)#, normalization='valid')
   out_list.append(center_loss)
   
   ## dsa loss
@@ -394,6 +395,7 @@ def train_net(args):
     if len(args.pretrained)==0:
       arg_params = None
       aux_params = None
+      fixed_param_names = None
       #dict of name to arg_params net weights
       #dict of name to net auxiliary states
       sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)
@@ -402,7 +404,8 @@ def train_net(args):
       vec = args.pretrained.split(',')
       print('loading', vec)
       _, arg_params, aux_params = mx.model.load_checkpoint(vec[0], int(vec[1]))
-      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)
+      fixed_param_names = [name for name in arg_params.keys() if not ((name.startswith('bn1')) or ('fc1' in name))]
+      sym, arg_params, aux_params = get_symbol(args, arg_params, aux_params)      
 
     #label_name = 'softmax_label'
     #label_shape = (args.batch_size,)
@@ -411,6 +414,7 @@ def train_net(args):
         symbol        = sym,
         data_names = ('data',), 
         label_names = ('seq_label',),
+        fixed_param_names=fixed_param_names
     )
     val_dataiter = None
 

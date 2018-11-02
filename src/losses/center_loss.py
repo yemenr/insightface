@@ -57,7 +57,7 @@ class CenterLoss(mx.operator.CustomOp):
         for i in range(self.batch_size):
             diff[i] = in_data[0][i] - center[int(labels[i])]
 
-        loss = mx.nd.sum(mx.nd.square(diff)) / 2
+        loss = mx.nd.sum(mx.nd.square(diff)) / self.batch_size / 2
         self.assign(out_data[0], req[0], loss)
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
