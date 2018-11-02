@@ -72,7 +72,7 @@ class LossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[2].asnumpy()[0]/args.batch_size#use ce loss output
+    loss = preds[2].asnumpy()[0]/args.per_batch_size#use ce loss output
     self.sum_metric += loss
     self.num_inst += 1.0
     #gt_label = preds[-3].asnumpy()
@@ -87,7 +87,7 @@ class AuxiliaryLossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[4].asnumpy()[0]/args.batch_size#use center loss output
+    loss = preds[4].asnumpy()[0]#/args.per_batch_size#use center loss output
     self.sum_metric += loss
     self.num_inst += 1.0
     
@@ -100,7 +100,7 @@ class SequenceLossValueMetric(mx.metric.EvalMetric):
     self.losses = []
 
   def update(self, labels, preds):
-    loss = preds[3].asnumpy()[0]/args.batch_size#use sequence loss output
+    loss = preds[3].asnumpy()[0]/args.per_batch_size#use sequence loss output
     self.sum_metric += loss
     self.num_inst += 1.0    
     
@@ -322,8 +322,9 @@ def get_symbol(args, arg_params, aux_params):
   
   # auxiliary loss
   ## center loss
-  center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
-  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
+  nembedding = mx.symbol.L2Normalization(embedding, mode='instance')
+  center_loss_ = mx.symbol.Custom(data=nembedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
+  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_)#, normalization='valid')
   out_list.append(center_loss)
   
   ## dsa loss
