@@ -60,7 +60,7 @@ def main(args):
     # Store some git revision info in a text file in the log directory
     src_path,_ = os.path.split(os.path.realpath(__file__))
     #facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
-    dataset = face_image.get_dataset(args.name, args.input_dir)
+    dataset = face_image.get_dataset(args.name, args.input_dir, args.dataset_type)
     print('dataset size', args.name, len(dataset))
     
     print('Creating networks and loading parameters')
@@ -243,6 +243,7 @@ def parse_arguments(argv):
     parser.add_argument('--input-dir', type=str, help='Directory with unaligned images.')
     parser.add_argument('--name', type=str, help='dataset name, can be facescrub, megaface, webface, celeb.')
     parser.add_argument('--output-dir', type=str, help='Directory with aligned face thumbnails.')
+    parser.add_argument('--dataset-type', type=str, default='id' ,help='dataset type: id | seq.')
     #parser.add_argument('--image_size', type=str, help='Image size (height, width) in pixels.', default='112,112')
     #parser.add_argument('--margin', type=int,
     #    help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
