@@ -224,9 +224,11 @@ def get_dataset_clfw(input_dir):
     ret.append(fimage)
   return ret
 
-def get_dataset_common(input_dir, min_images = 1):
+def get_dataset_common(input_dir, data_type, min_images = 1):
   ret = []
   label = 0
+  if data_type == 'seq':
+    label = -1
   person_names = []
   for person_name in os.listdir(input_dir):
     person_names.append(person_name)
@@ -246,12 +248,15 @@ def get_dataset_common(input_dir, min_images = 1):
       _ret.append(fimage)
     if len(_ret)>=min_images:
       ret += _ret
-      label+=1
+      if data_type == 'id':
+        label+=1
+      elif data_type == 'seq':
+        label -= 1
   return ret
 
-def get_dataset(name, input_dir):
+def get_dataset(name, input_dir, data_type):
   if name=='webface' or name=='lfw' or name=='vgg':
-    return get_dataset_common(input_dir)
+    return get_dataset_common(input_dir, data_type)
   if name=='celeb':
     return get_dataset_celeb(input_dir)
   if name=='facescrub':

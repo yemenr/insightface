@@ -60,7 +60,7 @@ def main(args):
     # Store some git revision info in a text file in the log directory
     src_path,_ = os.path.split(os.path.realpath(__file__))
     #facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
-    dataset = face_image.get_dataset(args.name, args.input_dir)
+    dataset = face_image.get_dataset(args.name, args.input_dir, args.dataset_type)
     print('dataset size', args.name, len(dataset))
     
     print('Creating networks and loading parameters')
@@ -78,21 +78,21 @@ def main(args):
     #image_size = [112,96]
     image_size = [112,112]
     src = np.array([
-      [30.2946, 51.6963],
-      [65.5318, 51.5014],
-      [48.0252, 71.7366],
-      [33.5493, 92.3655],
-      [62.7299, 92.2041] ], dtype=np.float32 )
+        [30.2946, 51.6963],
+        [65.5318, 51.5014],
+        [48.0252, 71.7366],
+        [33.5493, 92.3655],
+        [62.7299, 92.2041] ], dtype=np.float32 )
 
     if image_size[1]==112:
-      src[:,0] += 8.0
+        src[:,0] += 8.0
 
     # Add a random key to the filename to allow alignment using multiple processes
     #random_key = np.random.randint(0, high=99999)
     #bounding_boxes_filename = os.path.join(output_dir, 'bounding_boxes_%05d.txt' % random_key)
     #output_filename = os.path.join(output_dir, 'faceinsight_align_%s.lst' % args.name)
     if not os.path.exists(args.output_dir):
-      os.makedirs(args.output_dir)
+        os.makedirs(args.output_dir)
 
     output_filename = os.path.join(args.output_dir, 'lst')
     
@@ -102,14 +102,14 @@ def main(args):
         nrof = np.zeros( (5,), dtype=np.int32)
         for fimage in dataset:
             if nrof_images_total%100==0:
-              print("Processing %d, (%s)" % (nrof_images_total, nrof))
+                print("Processing %d, (%s)" % (nrof_images_total, nrof))
             nrof_images_total += 1
             #if nrof_images_total<950000:
             #  continue
             image_path = fimage.image_path
             if not os.path.exists(image_path):
-              print('image not found (%s)'%image_path)
-              continue
+                print('image not found (%s)'%image_path)
+                continue
             filename = os.path.splitext(os.path.split(image_path)[1])[0]
             #print(image_path)
             try:
@@ -129,108 +129,108 @@ def main(args):
                 a,b,c = _paths[-3], _paths[-2], _paths[-1]
                 target_dir = os.path.join(args.output_dir, a, b)
                 if not os.path.exists(target_dir):
-                  os.makedirs(target_dir)
+                    os.makedirs(target_dir)
                 target_file = os.path.join(target_dir, c)
                 warped = None
                 if fimage.landmark is not None:
-                  dst = fimage.landmark.astype(np.float32)
+                    dst = fimage.landmark.astype(np.float32)
 
-                  tform = trans.SimilarityTransform()
-                  tform.estimate(dst, src[0:3,:]*1.5+image_size[0]*0.25)
-                  M = tform.params[0:2,:]
-                  warped0 = cv2.warpAffine(img,M,(image_size[1]*2,image_size[0]*2), borderValue = 0.0)
-                  _minsize = image_size[0]
-                  bounding_boxes, points = detect_face.detect_face(warped0, _minsize, pnet, rnet, onet, threshold, factor)
-                  if bounding_boxes.shape[0]>0:
-                    bindex = 0
-                    det = bounding_boxes[bindex,0:4]
-                    #points need to be transpose, points = points.reshape( (5,2) ).transpose()
-                    dst = points[:, bindex].reshape( (2,5) ).T
                     tform = trans.SimilarityTransform()
-                    tform.estimate(dst, src)
+                    tform.estimate(dst, src[0:3,:]*1.5+image_size[0]*0.25)
                     M = tform.params[0:2,:]
-                    warped = cv2.warpAffine(warped0,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                    nrof[0]+=1
+                    warped0 = cv2.warpAffine(img,M,(image_size[1]*2,image_size[0]*2), borderValue = 0.0)
+                    _minsize = image_size[0]
+                    bounding_boxes, points = detect_face.detect_face(warped0, _minsize, pnet, rnet, onet, threshold, factor)
+                    if bounding_boxes.shape[0]>0:
+                        bindex = 0
+                        det = bounding_boxes[bindex,0:4]
+                        #points need to be transpose, points = points.reshape( (5,2) ).transpose()
+                        dst = points[:, bindex].reshape( (2,5) ).T
+                        tform = trans.SimilarityTransform()
+                        tform.estimate(dst, src)
+                        M = tform.params[0:2,:]
+                        warped = cv2.warpAffine(warped0,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                        nrof[0]+=1
                 #assert fimage.bbox is not None
                 if warped is None and fimage.bbox is not None:
-                  _minsize = img.shape[0]//4
-                  bounding_boxes, points = detect_face.detect_face(img, _minsize, pnet, rnet, onet, threshold, factor)
-                  if bounding_boxes.shape[0]>0:
-                    det = bounding_boxes[:,0:4]
-                    bindex = -1
-                    index2 = [0.0, 0]
-                    for i in xrange(det.shape[0]):
-                      _det = det[i]
-                      iou = IOU(fimage.bbox, _det)
-                      if iou>index2[0]:
-                        index2[0] = iou
-                        index2[1] = i
-                    if index2[0]>0.3:
-                      bindex = index2[1]
-                    if bindex>=0:
-                      dst = points[:, bindex].reshape( (2,5) ).T
-                      tform = trans.SimilarityTransform()
-                      tform.estimate(dst, src)
-                      M = tform.params[0:2,:]
-                      warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                      nrof[1]+=1
-                      #print('1',target_file,index2[0])
+                    _minsize = img.shape[0]//4
+                    bounding_boxes, points = detect_face.detect_face(img, _minsize, pnet, rnet, onet, threshold, factor)
+                    if bounding_boxes.shape[0]>0:
+                        det = bounding_boxes[:,0:4]
+                        bindex = -1
+                        index2 = [0.0, 0]
+                        for i in xrange(det.shape[0]):
+                            _det = det[i]
+                            iou = IOU(fimage.bbox, _det)
+                            if iou>index2[0]:
+                                index2[0] = iou
+                                index2[1] = i
+                        if index2[0]>0.3:
+                            bindex = index2[1]
+                        if bindex>=0:
+                            dst = points[:, bindex].reshape( (2,5) ).T
+                            tform = trans.SimilarityTransform()
+                            tform.estimate(dst, src)
+                            M = tform.params[0:2,:]
+                            warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            nrof[1]+=1
+                            #print('1',target_file,index2[0])
                 if warped is None and fimage.bbox is not None:
-                  bb = fimage.bbox
-                  #croped = img[bb[1]:bb[3],bb[0]:bb[2],:]
-                  bounding_boxes, points = detect_face.detect_face_force(img, bb, pnet, rnet, onet)
-                  assert bounding_boxes.shape[0]==1
-                  _box = bounding_boxes[0]
-                  if _box[4]>=0.3:
-                    dst = points[:, 0].reshape( (2,5) ).T
-                    tform = trans.SimilarityTransform()
-                    tform.estimate(dst, src)
-                    M = tform.params[0:2,:]
-                    warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                    nrof[2]+=1
-                    #print('2',target_file)
-                    
-                 if warped is None and fimage.bbox is None:
-                  _minsize = img.shape[0]//4
-                  bounding_boxes, points = detect_face.detect_face(img, _minsize, pnet, rnet, onet, threshold, factor)
-                  if (bounding_boxes.shape[0]==1):
+                    bb = fimage.bbox
+                    #croped = img[bb[1]:bb[3],bb[0]:bb[2],:]
+                    bounding_boxes, points = detect_face.detect_face_force(img, bb, pnet, rnet, onet)
+                    assert bounding_boxes.shape[0]==1
                     _box = bounding_boxes[0]
                     if _box[4]>=0.3:
-                      dst = points[:, 0].reshape( (2,5) ).T
-                      tform = trans.SimilarityTransform()
-                      tform.estimate(dst, src)
-                      M = tform.params[0:2,:]
-                      warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                      nrof[2]+=1   
+                        dst = points[:, 0].reshape( (2,5) ).T
+                        tform = trans.SimilarityTransform()
+                        tform.estimate(dst, src)
+                        M = tform.params[0:2,:]
+                        warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                        nrof[2]+=1
+                      #print('2',target_file)
+                    
+                if warped is None and fimage.bbox is None:
+                    _minsize = img.shape[0]//4
+                    bounding_boxes, points = detect_face.detect_face(img, _minsize, pnet, rnet, onet, threshold, factor)
+                    if (bounding_boxes.shape[0]==1):
+                        _box = bounding_boxes[0]
+                        if _box[4]>=0.3:
+                            dst = points[:, 0].reshape( (2,5) ).T
+                            tform = trans.SimilarityTransform()
+                            tform.estimate(dst, src)
+                            M = tform.params[0:2,:]
+                            warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            nrof[2]+=1   
 
                 if warped is None:
-                  roi = np.zeros( (4,), dtype=np.int32)
-                  roi[0] = int(img.shape[1]*0.06)
-                  roi[1] = int(img.shape[0]*0.06)
-                  roi[2] = img.shape[1]-roi[0]
-                  roi[3] = img.shape[0]-roi[1]
-                  if fimage.bbox is not None:
-                    bb = fimage.bbox
-                    h = bb[3]-bb[1]
-                    w = bb[2]-bb[0]
-                    x = bb[0]
-                    y = bb[1]
-                    #roi = np.copy(bb)
-                    _w = int( (float(h)/image_size[0])*image_size[1] )
-                    x += (w-_w)//2
-                    #x = min( max(0,x), img.shape[1] )
-                    x = max(0,x)
-                    xw = x+_w
-                    xw = min(xw, img.shape[1])
-                    roi = np.array( (x, y, xw, y+h), dtype=np.int32)
-                    nrof[3]+=1
-                  else:
-                    nrof[4]+=1
-                  #print('3',bb,roi,img.shape)
-                  #print('3',target_file)
-                  warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                  #print(warped.shape)
-                  warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                    roi = np.zeros( (4,), dtype=np.int32)
+                    roi[0] = int(img.shape[1]*0.06)
+                    roi[1] = int(img.shape[0]*0.06)
+                    roi[2] = img.shape[1]-roi[0]
+                    roi[3] = img.shape[0]-roi[1]
+                    if fimage.bbox is not None:
+                        bb = fimage.bbox
+                        h = bb[3]-bb[1]
+                        w = bb[2]-bb[0]
+                        x = bb[0]
+                        y = bb[1]
+                        #roi = np.copy(bb)
+                        _w = int( (float(h)/image_size[0])*image_size[1] )
+                        x += (w-_w)//2
+                        #x = min( max(0,x), img.shape[1] )
+                        x = max(0,x)
+                        xw = x+_w
+                        xw = min(xw, img.shape[1])
+                        roi = np.array( (x, y, xw, y+h), dtype=np.int32)
+                        nrof[3]+=1
+                    else:
+                        nrof[4]+=1
+                    #print('3',bb,roi,img.shape)
+                    #print('3',target_file)
+                    warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                    #print(warped.shape)
+                    warped = cv2.resize(warped, (image_size[1], image_size[0]))
                 bgr = warped[...,::-1]
                 cv2.imwrite(target_file, bgr)
                 oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
@@ -243,6 +243,7 @@ def parse_arguments(argv):
     parser.add_argument('--input-dir', type=str, help='Directory with unaligned images.')
     parser.add_argument('--name', type=str, help='dataset name, can be facescrub, megaface, webface, celeb.')
     parser.add_argument('--output-dir', type=str, help='Directory with aligned face thumbnails.')
+    parser.add_argument('--dataset-type', type=str, default='id' ,help='dataset type: id | seq.')
     #parser.add_argument('--image_size', type=str, help='Image size (height, width) in pixels.', default='112,112')
     #parser.add_argument('--margin', type=int,
     #    help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
