@@ -16,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
 import face_image
 from skimage import transform as trans
 import cv2
+import pdb
 
 def to_rgb(img):
     w, h = img.shape
@@ -130,72 +131,115 @@ def main(args):
                 target_dir = os.path.join(args.output_dir, a, b)
                 if not os.path.exists(target_dir):
                     os.makedirs(target_dir)
-                target_file = os.path.join(target_dir, c)
-                warped = None                
+                #target_file = os.path.join(target_dir, c)
+                #warped = None                
                     
                 _minsize = img.shape[0]//4
                 bounding_boxes, points = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
-                if (bounding_boxes.shape[0]>0):
-                    _box = bounding_boxes[0]
-                    if (bounding_boxes.shape[0]>1):
-                        det = bounding_boxes[:,0:4]
-                        bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
-                        #index = np.argmax(bounding_box_size)
-                        #idx = np.argmax(bounding_boxes[:,4])
-                        #if index == idx:
-                        img_center = np.asarray(img.shape)[0:2] / 2
-                        offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
-                        offset_dist_squared = np.sum(np.power(offsets,2.0),0)
-                        index = np.argmax(bounding_box_size-offset_dist_squared*2.0)
-                        #index = np.argmin(offsets) 
-                        _box = bounding_boxes[index]
-                        #else:
-                        #    print('unable align')
-                        
-                    dst = points[:, 0].reshape( (2,5) ).T
-                    tform = trans.SimilarityTransform()
-                    tform.estimate(dst, src)
-                    M = tform.params[0:2,:]
-                    warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                    nrof[2]+=1
-                else:
-                    print('Unable to align "%s", face detection error' % image_path)
-                    #text_file.write('%s\n' % (output_filename))
-                    continue
-
-                if warped is None:
-                    roi = np.zeros( (4,), dtype=np.int32)
-                    roi[0] = int(img.shape[1]*0.06)
-                    roi[1] = int(img.shape[0]*0.06)
-                    roi[2] = img.shape[1]-roi[0]
-                    roi[3] = img.shape[0]-roi[1]
-                    if fimage.bbox is not None:
-                        bb = fimage.bbox
+                nrof_faces = bounding_boxes.shape[0]
+                det = bounding_boxes[:,0:4]
+                scores = bounding_boxes[:,4]
+                aligned_imgs = []
+                img_size = np.asarray(img.shape)[0:2]
+                if (nrof_faces>0): 
+                    if nrof_faces > 1:                
+                        if args.detect_multiple_faces:
+                            for i in range(nrof_faces):
+                                if scores[i] > 0:
+                                    bb = np.squeeze(det[i])
+                                    h = bb[3]-bb[1]
+                                    w = bb[2]-bb[0]
+                                    x = bb[0]
+                                    y = bb[1] 
+                                    _w = int((float(h)/image_size[0])*image_size[1] )
+                                    x += (w-_w)//2
+                                    #x = min( max(0,x), img.shape[1] )
+                                    x = max(0,x)
+                                    xw = x+_w
+                                    xw = min(xw, img.shape[1])
+                                    roi = np.array( (x, y, xw, y+h), dtype=np.int32)
+                                    
+                                    faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                    dst = points[:, i].reshape( (2,5) ).T
+                                    tform = trans.SimilarityTransform()
+                                    tform.estimate(dst, src)
+                                    M = tform.params[0:2,:]
+                                    warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                                    
+                                    if (warped is None) or (np.sum(warped) == 0):
+                                        warped = faceImg
+                                        warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                                    
+                                    aligned_imgs.append(warped)
+                        else:
+                            bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
+                            img_center = img_size / 2
+                            offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
+                            offset_dist_squared = np.sum(np.power(offsets,2.0),0)
+                            index = np.argmax(bounding_box_size-offset_dist_squared*2.0) # some extra weight on the centering
+                            
+                            bb = np.squeeze(det[index])
+                            h = bb[3]-bb[1]
+                            w = bb[2]-bb[0]
+                            x = bb[0]
+                            y = bb[1] 
+                            _w = int((float(h)/image_size[0])*image_size[1] )
+                            x += (w-_w)//2
+                            #x = min( max(0,x), img.shape[1] )
+                            x = max(0,x)
+                            xw = x+_w
+                            xw = min(xw, img.shape[1])
+                            roi = np.array( (x, y, xw, y+h), dtype=np.int32)
+                            
+                            faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                            dst = points[:, index].reshape( (2,5) ).T
+                            tform = trans.SimilarityTransform()
+                            tform.estimate(dst, src)
+                            M = tform.params[0:2,:]
+                            warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            
+                            if (warped is None) or (np.sum(warped) == 0):
+                                warped = faceImg
+                                warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                            
+                            aligned_imgs.append(warped)
+                    else:
+                        bb = np.squeeze(det[0])
                         h = bb[3]-bb[1]
                         w = bb[2]-bb[0]
                         x = bb[0]
-                        y = bb[1]
-                        #roi = np.copy(bb)
-                        _w = int( (float(h)/image_size[0])*image_size[1] )
+                        y = bb[1] 
+                        _w = int((float(h)/image_size[0])*image_size[1] )
                         x += (w-_w)//2
                         #x = min( max(0,x), img.shape[1] )
                         x = max(0,x)
                         xw = x+_w
                         xw = min(xw, img.shape[1])
                         roi = np.array( (x, y, xw, y+h), dtype=np.int32)
-                        nrof[3]+=1
-                    else:
-                        nrof[4]+=1
-                    #print('3',bb,roi,img.shape)
-                    #print('3',target_file)
-                    warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                    #print(warped.shape)
-                    warped = cv2.resize(warped, (image_size[1], image_size[0]))
-                bgr = warped[...,::-1]
-                cv2.imwrite(target_file, bgr)
-                oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
-                text_file.write(oline)
-                            
+                        
+                        faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                        dst = points[:, 0].reshape( (2,5) ).T
+                        tform = trans.SimilarityTransform()
+                        tform.estimate(dst, src)
+                        M = tform.params[0:2,:]
+                        warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                        
+                        if (warped is None) or (np.sum(warped) == 0):
+                            warped = faceImg
+                            warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                        
+                        aligned_imgs.append(warped)  
+                    
+                    for i, warped in enumerate(aligned_imgs):
+                        target_file = os.path.join(target_dir, str(i)+'.png')
+                        bgr = warped[...,::-1]
+                        cv2.imwrite(target_file, bgr)
+                        oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
+                        text_file.write(oline)
+                else:
+                    print('Unable to align "%s", face detection error' % image_path)
+                    #text_file.write('%s\n' % (output_filename))
+                    continue
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
@@ -207,6 +251,8 @@ def parse_arguments(argv):
     #parser.add_argument('--image_size', type=str, help='Image size (height, width) in pixels.', default='112,112')
     #parser.add_argument('--margin', type=int,
     #    help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
+    parser.add_argument('--detect_multiple_faces', type=bool,
+                        help='Detect and align multiple faces per image.', default=True)
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
