@@ -141,16 +141,27 @@ def main(args):
                 scores = bounding_boxes[:,4]
                 aligned_imgs = []
                 img_size = np.asarray(img.shape)[0:2]
+                print(c)
+                pdb.set_trace()
                 if (nrof_faces>0): 
                     if nrof_faces > 1:                
                         if args.detect_multiple_faces:
                             for i in range(nrof_faces):
                                 if scores[i] > 0:
                                     bb = np.squeeze(det[i])
+                                    bb[0] = max(0,bb[0])
+                                    bb[1] = max(0,bb[1])
+                                    bb[2] = min(bb[2],img_size[1])
+                                    bb[3] = min(bb[3],img_size[0])
+                                    
+                                    if ((bb[0] >= img_size[1]) or (bb[1] >= img_size[0]) or (bb[2] > img_size[1]) or (bb[3] > img_size[0])):
+                                        continue
+                                    
                                     h = bb[3]-bb[1]
                                     w = bb[2]-bb[0]
                                     x = bb[0]
-                                    y = bb[1] 
+                                    y = bb[1]
+                                                                        
                                     _w = int((float(h)/image_size[0])*image_size[1] )
                                     x += (w-_w)//2
                                     #x = min( max(0,x), img.shape[1] )
@@ -179,6 +190,15 @@ def main(args):
                             index = np.argmax(bounding_box_size-offset_dist_squared*2.0) # some extra weight on the centering
                             
                             bb = np.squeeze(det[index])
+                            
+                            bb[0] = max(0,bb[0])
+                            bb[1] = max(0,bb[1])
+                            bb[2] = min(bb[2],img_size[1])
+                            bb[3] = min(bb[3],img_size[0])
+                            
+                            if ((bb[0] >= img_size[1]) or (bb[1] >= img_size[0]) or (bb[2] > img_size[1]) or (bb[3] > img_size[0])):
+                                continue
+                            
                             h = bb[3]-bb[1]
                             w = bb[2]-bb[0]
                             x = bb[0]
@@ -205,6 +225,15 @@ def main(args):
                             aligned_imgs.append(warped)
                     else:
                         bb = np.squeeze(det[0])
+                        
+                        bb[0] = max(0,bb[0])
+                        bb[1] = max(0,bb[1])
+                        bb[2] = min(bb[2],img_size[1])
+                        bb[3] = min(bb[3],img_size[0])
+                        
+                        if ((bb[0] >= img_size[1]) or (bb[1] >= img_size[0]) or (bb[2] > img_size[1]) or (bb[3] > img_size[0])):
+                            continue
+                        
                         h = bb[3]-bb[1]
                         w = bb[2]-bb[0]
                         x = bb[0]
@@ -231,7 +260,7 @@ def main(args):
                         aligned_imgs.append(warped)  
                     
                     for i, warped in enumerate(aligned_imgs):
-                        target_file = os.path.join(target_dir, str(i)+'.png')
+                        target_file = os.path.join(target_dir, c+str(i)+'.png')
                         bgr = warped[...,::-1]
                         cv2.imwrite(target_file, bgr)
                         oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
