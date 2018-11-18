@@ -140,9 +140,14 @@ def main(args):
                     if (bounding_boxes.shape[0]>1):
                         det = bounding_boxes[:,0:4]
                         bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
-                        index = np.argmax(bounding_box_size)
+                        #index = np.argmax(bounding_box_size)
                         #idx = np.argmax(bounding_boxes[:,4])
                         #if index == idx:
+                        img_center = np.asarray(img.shape)[0:2] / 2
+                        offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
+                        offset_dist_squared = np.sum(np.power(offsets,2.0),0)
+                        index = np.argmax(bounding_box_size-offset_dist_squared*2.0)
+                        #index = np.argmin(offsets) 
                         _box = bounding_boxes[index]
                         #else:
                         #    print('unable align')
