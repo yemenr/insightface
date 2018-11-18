@@ -140,9 +140,11 @@ def main(args):
                     if (bounding_boxes.shape[0]>1):
                         det = bounding_boxes[:,0:4]
                         bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
-                        index = np.argmax(bounding_box_size)
+                        #index = np.argmax(bounding_box_size)
                         #idx = np.argmax(bounding_boxes[:,4])
                         #if index == idx:
+                        index = np.argmax(bounding_box_size-offset_dist_squared*2.0)
+                        #index = np.argmin(offsets) 
                         _box = bounding_boxes[index]
                         #else:
                         #    print('unable align')
