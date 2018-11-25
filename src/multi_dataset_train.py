@@ -31,7 +31,7 @@ import spherenet
 import verification
 import sklearn
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
-import center_loss
+from seq_loss import center_loss, single_dsa_loss, multiple_dsa_loss
 import pdb
 
 logger = logging.getLogger()
@@ -149,8 +149,10 @@ def parse_args():
   parser.add_argument('--cutoff', type=int, default=0, help='cut off aug')
   parser.add_argument('--target', type=str, default='lfw,cfp_fp,agedb_30', help='verification targets')
   parser.add_argument('--ce-loss', default=False, action='store_true', help='if output ce loss')
-  parser.add_argument('--chief_loss_factor', type=float, help='chief loss factor.', default=0.96)
-  parser.add_argument('--identity_loss_factor', type=float, help='identity loss factor.', default=0.96)
+  parser.add_argument('--auxiliary_loss_factor', type=float, help='auxiliary loss factor.', default=1)
+  parser.add_argument('--sequence_loss_factor', type=float, help='sequence loss factor.', default=1)
+  parser.add_argument('--lsr', action='store_true', help='add LSR item')
+  parser.add_argument('--aux_loss_type', default=None, help='None | center | dsa loss')
   args = parser.parse_args()
   return args
 
@@ -312,19 +314,25 @@ def get_symbol(args, arg_params, aux_params):
   _label = mx.sym.one_hot(idLabels, depth = args.id_classes_num, on_value = -1.0, off_value = 0.0)
   body = body*_label
   ce_loss_ = mx.symbol.sum(body)#/args.per_batch_size
-  ce_loss = mx.symbol.MakeLoss(name='identity_loss', data=ce_loss_, normalization='valid',grad_scale=args.identity_loss_factor*args.chief_loss_factor)
+  ce_loss = mx.symbol.MakeLoss(name='identity_loss', data=ce_loss_, normalization='valid',grad_scale=1)
   out_list.append(ce_loss)
   
   # label smoothing regularization loss
-  sequence_loss_ = -mx.symbol.sum(mx.symbol.mean(mx.symbol.log_softmax(seqLogits),axis=1)) # warning
-  sequence_loss = mx.symbol.MakeLoss(name='sequence_loss', data=sequence_loss_, normalization='valid',grad_scale=(1-args.identity_loss_factor)*args.chief_loss_factor)  
-  out_list.append(sequence_loss)
+  if args.lsr:
+    sequence_loss_ = -mx.symbol.sum(mx.symbol.mean(mx.symbol.log_softmax(seqLogits),axis=1)) # warning
+    sequence_loss = mx.symbol.MakeLoss(name='sequence_loss', data=sequence_loss_, normalization='valid',grad_scale=sequence_loss_factor)  
+    out_list.append(sequence_loss)
   
   # auxiliary loss
   ## center loss
-  nembedding = mx.symbol.L2Normalization(embedding, mode='instance')
-  center_loss_ = mx.symbol.Custom(data=nembedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=1-args.chief_loss_factor, batchsize=args.per_batch_size)
-  center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_)#, normalization='valid')
+  if args.aux_loss_type == '': 
+    nembedding = mx.symbol.L2Normalization(embedding, mode='instance')  
+    # old implementation
+    #center_loss_ = mx.symbol.Custom(data=nembedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_classes_num+args.seq_classes_num), alpha=0.05, scale=auxiliary_loss_factor, batchsize=args.per_batch_size)
+    #center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_)#, normalization='valid')
+    # new implementation
+    center_loss_, _ = center_loss()
+  
   out_list.append(center_loss)
   
   ## dsa loss
@@ -440,12 +448,14 @@ def train_net(args):
       eval_metrics.append( mx.metric.create(metric2) )
       
       # sequence loss
-      metric3 = SequenceLossValueMetric()
-      eval_metrics.append( mx.metric.create(metric3) )
+      if args.lsr:
+        metric3 = SequenceLossValueMetric()
+        eval_metrics.append( mx.metric.create(metric3) )
       
       # auxiliary loss
-      metric4 = AuxiliaryLossValueMetric()
-      eval_metrics.append( mx.metric.create(metric4) )
+      if args.aux_loss_type != None:
+        metric4 = AuxiliaryLossValueMetric()
+        eval_metrics.append( mx.metric.create(metric4) )
       
 
     if args.network[0]=='r' or args.network[0]=='y':
