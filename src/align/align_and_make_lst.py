@@ -141,8 +141,7 @@ def main(args):
                 scores = bounding_boxes[:,4]
                 aligned_imgs = []
                 img_size = np.asarray(img.shape)[0:2]
-                print(c)
-                pdb.set_trace()
+                #print(c)
                 if (nrof_faces>0): 
                     if nrof_faces > 1:                
                         if args.detect_multiple_faces:

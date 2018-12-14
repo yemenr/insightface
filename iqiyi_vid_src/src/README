@@ -1,0 +1,16 @@
+所有代码 cd 到 src/ 下运行, 环境:  linux + python2.7 + mxnet
+
+python2 run.py 是大部分功能的入口:
+1. python2 run.py 1:  对train+val做人脸检测并序列化存储
+2. python2 run.py 4:  对test做人脸检测并序列化存储.
+3. python2 run.py 2:  对保存的检测结果进行抽取人脸feature并序列化, 注意, 在跑之前修改run.py头部的模型路径和保存文件的起始文件名, 总共需要跑5个模型, (a,c,d,e,h)
+4. python2 run.py 5:  对保存的test检测结果进行feature抽取, 其余同上.
+5. python2 run.py 10 a :  对抽取的a模型特征进行再保存, 用于训练MLP网络. 同理需要跑所有(a,c,d,e,h)
+6. python2 run.py 11 a 1 : 用训练好的MLP网络进行推理, 保存推理结果. 模型a, 第1号MLP网络.
+7. python2 run.py 15 : 输出最终提交结果.
+
+train_mlp.py 用于训练MLP网络. 用法参考 train_mlp.sh, 每个特征集需要训练2个不同的网络, 具体信息参考PPT.
+
+9_data.py以及 src/finetune/ 下的代码用来训练图片分类和预测结果. 最终生成 iqiyi-scenea 模型和scenepreda的预测结果
+
+所有的数据和中间结果及模型都已打包, 可直接用  run.py 15 输出提交结果.
