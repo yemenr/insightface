@@ -174,8 +174,9 @@ def main(args):
                                     tform = trans.SimilarityTransform()
                                     tform.estimate(dst, src)
                                     M = tform.params[0:2,:]
-                                    warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                                    
+                                    warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                                    #M = tform.params
+                                    #warped = cv2.warpPerspective(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
                                     if (warped is None) or (np.sum(warped) == 0):
                                         warped = faceImg
                                         warped = cv2.resize(warped, (image_size[1], image_size[0]))
@@ -215,8 +216,9 @@ def main(args):
                             tform = trans.SimilarityTransform()
                             tform.estimate(dst, src)
                             M = tform.params[0:2,:]
-                            warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                            
+                            warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            #M = tform.params
+                            #warped = cv2.warpPerspective(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
                             if (warped is None) or (np.sum(warped) == 0):
                                 warped = faceImg
                                 warped = cv2.resize(warped, (image_size[1], image_size[0]))
@@ -250,8 +252,9 @@ def main(args):
                         tform = trans.SimilarityTransform()
                         tform.estimate(dst, src)
                         M = tform.params[0:2,:]
-                        warped = cv2.warpAffine(faceImg,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                        
+                        warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                        #M = tform.params
+                        #warped = cv2.warpPerspective(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
                         if (warped is None) or (np.sum(warped) == 0):
                             warped = faceImg
                             warped = cv2.resize(warped, (image_size[1], image_size[0]))
@@ -279,8 +282,8 @@ def parse_arguments(argv):
     #parser.add_argument('--image_size', type=str, help='Image size (height, width) in pixels.', default='112,112')
     #parser.add_argument('--margin', type=int,
     #    help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
-    parser.add_argument('--detect_multiple_faces', type=bool,
-                        help='Detect and align multiple faces per image.', default=True)
+    parser.add_argument('--detect_multiple_faces', action='store_true',
+                        help='Detect and align multiple faces per image.')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
