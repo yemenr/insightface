@@ -94,8 +94,7 @@ def main(args):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    output_filename = os.path.join(args.output_dir, 'lst')
-    
+    output_filename = os.path.join(args.output_dir, 'lst')    
     
     with open(output_filename, "w") as text_file:
         nrof_images_total = 0

@@ -95,8 +95,7 @@ def main(args):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    output_filename = os.path.join(args.output_dir, 'lst')
-    
+    output_filename = os.path.join(args.output_dir, 'lst')    
     
     with open(output_filename, "w") as text_file:
         nrof_images_total = 0
@@ -129,11 +128,21 @@ def main(args):
                 _paths = fimage.image_path.split('/')
                 a,b,c = _paths[-3], _paths[-2], _paths[-1]
                 target_dir = os.path.join(args.output_dir, a, b)
+                
+                if args.lst_only:
+                    #target_file = os.path.join(target_dir, c)
+                    #bgr = cv2.imread(image_path)
+                    #cv2.imwrite(target_file, bgr)
+                    oline = '%d\t%s\t%d\n' % (1,image_path, int(fimage.classname))
+                    text_file.write(oline)
+                    nrof[4]+=1
+                    continue
+                
                 if not os.path.exists(target_dir):
                     os.makedirs(target_dir)
                 #target_file = os.path.join(target_dir, c)
                 #warped = None                
-                    
+                
                 _minsize = img.shape[0]//4
                 bounding_boxes, points = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
                 nrof_faces = bounding_boxes.shape[0]
@@ -182,6 +191,7 @@ def main(args):
                                         warped = cv2.resize(warped, (image_size[1], image_size[0]))
                                     
                                     aligned_imgs.append(warped)
+                                    nrof[1]+=1
                         else:
                             bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
                             img_center = img_size / 2
@@ -224,6 +234,7 @@ def main(args):
                                 warped = cv2.resize(warped, (image_size[1], image_size[0]))
                             
                             aligned_imgs.append(warped)
+                            nrof[2]+=1
                     else:
                         bb = np.squeeze(det[0])
                         
@@ -260,6 +271,7 @@ def main(args):
                             warped = cv2.resize(warped, (image_size[1], image_size[0]))
                         
                         aligned_imgs.append(warped)  
+                        nrof[0]+=1
                     
                     for i, warped in enumerate(aligned_imgs):
                         target_file = os.path.join(target_dir, c+str(i)+'.png')
@@ -267,9 +279,24 @@ def main(args):
                         cv2.imwrite(target_file, bgr)
                         oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
                         text_file.write(oline)
+                elif args.detect_force:
+                    roi = np.zeros( (4,), dtype=np.int32)
+                    roi[0] = int(img.shape[1]*0.06)
+                    roi[1] = int(img.shape[0]*0.06)
+                    roi[2] = img.shape[1]-roi[0]
+                    roi[3] = img.shape[0]-roi[1]
+                    warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                    warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                    target_file = os.path.join(target_dir, c+'.png')
+                    bgr = warped[...,::-1]
+                    cv2.imwrite(target_file, bgr)
+                    oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
+                    text_file.write(oline)
+                    nrof[3]+=1
                 else:
-                    print('Unable to align "%s", face detection error' % image_path)
+                    print('Unable to detect "%s", face detection error' % image_path)
                     #text_file.write('%s\n' % (output_filename))
+                    nrof[4]+=1
                     continue
 
 def parse_arguments(argv):
@@ -284,6 +311,10 @@ def parse_arguments(argv):
     #    help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--detect_multiple_faces', action='store_true',
                         help='Detect and align multiple faces per image.')
+    parser.add_argument('--detect_force', action='store_true',
+                        help='Detect and align faces per image forcefully.')
+    parser.add_argument('--lst_only', action='store_true',
+                        help='only make lst file.')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
