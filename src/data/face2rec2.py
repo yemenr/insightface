@@ -45,7 +45,7 @@ except ImportError:
 def read_list(path_in):
     with open(path_in) as fin:
         identities = []
-        last = [-1, -1]
+        last = [-9999999, -1]
         _id = 1
         while True:
             line = fin.readline()
