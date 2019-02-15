@@ -287,14 +287,14 @@ def train_net(args):
       train_dataiter = FaceImageIter(
           batch_size           = args.batch_size,
           data_shape           = data_shape,
-          path_imgrec          = path_imgrec,
+          path_imgrec          = (path_imgrec,seq_path_imgrec),
           shuffle              = True,
           rand_mirror          = config.data_rand_mirror,
           mean                 = mean,
           cutoff               = config.data_cutoff,
           color_jittering      = config.data_color,
           images_filter        = config.data_images_filter,
-          classes_num          = (args.id_classes_num, args.seq_classes_num),
+          classes_num          = (args.id_num_classes, args.seq_num_classes),
           data_name            ='data', 
           label_name           ='seq_label'
       )
