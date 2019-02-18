@@ -210,6 +210,8 @@ class FaceImageIter(io.DataIter):
                         #convert seq label
                         if label < 0:
                             label = (self.classes_num[0]-1-label)
+                        elif kk == 1:
+                            label = (self.classes_num[0]+label)
                         _data = self.imdecode(s)    #decode img
                         if _data.shape[0]!=self.data_shape[1]:
                             _data = mx.image.resize_short(_data, self.data_shape[1])

@@ -295,8 +295,9 @@ def train_net(args):
           color_jittering      = config.data_color,
           images_filter        = config.data_images_filter,
           classes_num          = (args.id_num_classes, args.seq_num_classes),
-          data_name            ='data', 
-          label_name           ='seq_label'
+          data_name            = 'data', 
+          label_name           = 'seq_label',
+          ctx_num              = args.ctx_num
       )
       metric1 = AccMetric()
       eval_metrics = [mx.metric.create(metric1)]
@@ -417,7 +418,20 @@ def train_net(args):
         sys.exit(0)
 
     epoch_cb = None
-    train_dataiter = mx.io.PrefetchingIter(train_dataiter)  #triplet loss unavailable
+    #train_dataiter = mx.io.PrefetchingIter(train_dataiter)  #triplet loss unavailable
+
+    #kkk = 0
+    #while(True):
+    #    kkk += 1
+    #    print("kkk: %d" % kkk)
+    #    try:
+    #        #if kkk == 191:
+    #        pdb.set_trace()
+    #        dataBatch = train_dataiter.next()
+    #    except StopIteration:
+    #        pdb.set_trace()
+    #        train_dataiter.reset()
+
 
     model.fit(train_dataiter,
         begin_epoch        = begin_epoch,
