@@ -33,7 +33,7 @@ import numpy as np
 import symbol_utils
 import sklearn
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config import config
+from config import config, default
 
 def Conv(**kwargs):
     #name = kwargs.get('name')
@@ -486,7 +486,7 @@ def residual_unit(data, num_filter, stride, dim_match, name, bottle_neck, **kwar
     return residual_unit_v3(data, num_filter, stride, dim_match, name, bottle_neck, **kwargs)
 
 def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
-    input_shape = (config.per_batch_size, config.image_shape[-1], config.image_shape[0], config.image_shape[1])
+    input_shape = (default.per_batch_size, config.image_shape[-1], config.image_shape[0], config.image_shape[1])
     bn_mom = config.bn_mom
     workspace = config.workspace
     kwargs = {'version_se' : config.net_se,
@@ -496,7 +496,7 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
         'version_act': config.net_act,
         'bn_mom': bn_mom,
         'workspace': workspace,
-        #'memonger': config.memonger
+        #'memonger': default.memonger
         }
     """Return ResNet symbol of
     Parameters
@@ -526,20 +526,20 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
     assert(num_unit == num_stages)
     data = mx.sym.Variable(name='data', shape=input_shape)
     if version_input==0:
-      #data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data', cudnn_off=config.memonger)
+      #data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data', cudnn_off=default.memonger)
       data = mx.sym.identity(data=data, name='id')
       data = data-127.5
       data = data*0.0078125
       body = Conv(data=data, num_filter=filter_list[0], kernel=(7, 7), stride=(2,2), pad=(3, 3),
                                 no_bias=True, name="conv0", workspace=workspace)
-      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=config.memonger)
+      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=default.memonger)
       body = Act(data=body, act_type=act_type, name='relu0')
       #body = mx.sym.Pooling(data=body, kernel=(3, 3), stride=(2,2), pad=(1,1), pool_type='max')
     elif version_input==2:
-      data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data', cudnn_off=config.memonger)
+      data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data', cudnn_off=default.memonger)
       body = Conv(data=data, num_filter=filter_list[0], kernel=(3,3), stride=(1,1), pad=(1,1),
                                 no_bias=True, name="conv0", workspace=workspace)
-      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=config.memonger)
+      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=default.memonger)
       body = Act(data=body, act_type=act_type, name='relu0')
     else:
       data = mx.sym.identity(data=data, name='id')
@@ -548,10 +548,10 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
       body = data
       body = Conv(data=body, num_filter=filter_list[0], kernel=(3,3), stride=(1,1), pad=(1, 1),
                                 no_bias=True, name="conv0", workspace=workspace)
-      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=config.memonger)
+      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=default.memonger)
       body = Act(data=body, act_type=act_type, name='relu0')
     
-    if config.memonger:
+    if default.memonger:
       body._set_attr(mirror_stage='True')
     
     for i in range(num_stages):
@@ -564,18 +564,18 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
       body = residual_unit(body, filter_list[i+1], (2, 2), False,
         name='stage%d_unit%d' % (i + 1, 1), bottle_neck=bottle_neck, **kwargs)
         
-      if config.memonger:
+      if default.memonger:
         body._set_attr(mirror_stage='True')
         
       for j in range(units[i]-1):
         body = residual_unit(body, filter_list[i+1], (1,1), True, name='stage%d_unit%d' % (i+1, j+2),
           bottle_neck=bottle_neck, **kwargs)
-        if config.memonger:
+        if default.memonger:
           body._set_attr(mirror_stage='True')
 
     fc1 = symbol_utils.get_fc1(body, num_classes, fc_type)
     
-    if config.memonger:
+    if default.memonger:
       fc1._set_attr(mirror_stage='True')
       
     return fc1

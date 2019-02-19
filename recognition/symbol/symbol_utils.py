@@ -2,7 +2,7 @@ import sys
 import os
 import mxnet as mx
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from config import config
+from config import config, default
 
 def Conv(**kwargs):
     #name = kwargs.get('name')
@@ -29,32 +29,32 @@ def Linear(data, num_filter=1, kernel=(1, 1), stride=(1, 1), pad=(0, 0), num_gro
 def get_fc1(last_conv, num_classes, fc_type, input_channel=512):
   body = last_conv
   if fc_type=='Z':
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     body = mx.symbol.Dropout(data=body, p=0.4)
     fc1 = body
   elif fc_type=='E':
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     body = mx.symbol.Dropout(data=body, p=0.4)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
-    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='GAP':
-    bn1 = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    bn1 = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     relu1 = Act(data=bn1, act_type=config.net_act, name='relu1')
     # Although kernel is not used here when global_pool=True, we should put one
     pool1 = mx.sym.Pooling(data=relu1, global_pool=True, kernel=(7, 7), pool_type='avg', name='pool1')
     flat = mx.sym.Flatten(data=pool1)
     fc1 = mx.sym.FullyConnected(data=flat, num_hidden=num_classes, name='pre_fc1')
-    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='GNAP': #mobilefacenet++
     filters_in = 512 # param in mobilefacenet
     if num_classes>filters_in:
       body = mx.sym.Convolution(data=last_conv, num_filter=num_classes, kernel=(1,1), stride=(1,1), pad=(0,0), no_bias=True, name='convx')
-      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=0.9, name='convx_bn', cudnn_off=config.memonger)
+      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=0.9, name='convx_bn', cudnn_off=default.memonger)
       body = Act(data=body, act_type=config.net_act, name='convx_relu')
       filters_in = num_classes
     else:
       body = last_conv
-    body = mx.sym.BatchNorm(data=body, fix_gamma=True, eps=2e-5, momentum=0.9, name='bn6f', cudnn_off=config.memonger)  
+    body = mx.sym.BatchNorm(data=body, fix_gamma=True, eps=2e-5, momentum=0.9, name='bn6f', cudnn_off=default.memonger)  
 
     spatial_norm=body*body
     spatial_norm=mx.sym.sum(data=spatial_norm, axis=1, keepdims=True)
@@ -69,31 +69,31 @@ def get_fc1(last_conv, num_classes, fc_type, input_channel=512):
 
     fc1 = mx.sym.Pooling(body, kernel=(7, 7), global_pool=True, pool_type='avg')
     if num_classes<filters_in:
-      fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=0.9, name='bn6w', cudnn_off=config.memonger)
+      fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=0.9, name='bn6w', cudnn_off=default.memonger)
       fc1 = mx.sym.FullyConnected(data=fc1, num_hidden=num_classes, name='pre_fc1')
     else:
       fc1 = mx.sym.Flatten(data=fc1)
-    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=0.9, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=0.9, name='fc1', cudnn_off=default.memonger)
   elif fc_type=="GDC": #mobilefacenet_v1
     conv_6_dw = Linear(last_conv, num_filter=input_channel, num_group=input_channel, kernel=(7,7), pad=(0, 0), stride=(1, 1), name="conv_6dw7_7")  
     conv_6_f = mx.sym.FullyConnected(data=conv_6_dw, num_hidden=num_classes, name='pre_fc1')
-    fc1 = mx.sym.BatchNorm(data=conv_6_f, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=conv_6_f, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='F':
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     body = mx.symbol.Dropout(data=body, p=0.4)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='fc1')
   elif fc_type=='G':
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='fc1')
   elif fc_type=='H':
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='fc1')
   elif fc_type=='I':
-    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=config.memonger)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
-    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='J':
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
-    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=config.memonger)
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   return fc1
 
 def residual_unit_v3(data, num_filter, stride, dim_match, name, **kwargs):
@@ -160,7 +160,7 @@ def residual_unit_v1l(data, num_filter, stride, dim_match, name, bottle_neck):
     """
     workspace = config.workspace
     bn_mom = config.bn_mom
-    memonger = config.memonger
+    memonger = default.memonger
     use_se = config.net_se
     act_type = config.net_act
     #print('in unit1')
@@ -231,7 +231,7 @@ def residual_unit_v1l(data, num_filter, stride, dim_match, name, bottle_neck):
 def get_head(data, version_input, num_filter):
     bn_mom = config.bn_mom
     workspace = config.workspace
-    kwargs = {'bn_mom': bn_mom, 'workspace' : workspace, 'memonger': config.memonger}
+    kwargs = {'bn_mom': bn_mom, 'workspace' : workspace, 'memonger': default.memonger}
     data = data-127.5
     data = data*0.0078125
     #data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data')
