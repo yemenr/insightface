@@ -26,7 +26,7 @@ import fmobilefacenet
 import fmobilenet
 import fmnasnet
 import fdensenet
-
+import time
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -159,7 +159,8 @@ def train_net(args):
       print('use cpu')
     else:
       print('gpu num:', len(ctx))
-    prefix = os.path.join(args.models_root, '%s-%s-%s'%(args.network, args.loss, args.dataset), 'model')
+    curTime = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    prefix = os.path.join(args.models_root, curTime, '%s-%s-%s'%(args.network, args.loss, args.dataset), 'model')
     prefix_dir = os.path.dirname(prefix)
     print('prefix', prefix)
     if not os.path.exists(prefix_dir):
