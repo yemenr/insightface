@@ -27,6 +27,8 @@ import fdensenet
 import time
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
 import center_loss
+sys.path.append(os.path.join(os.path.dirname(__file__), 'memonger'))
+import memonger
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -60,12 +62,15 @@ def parse_args():
   parser.add_argument('--lsr', type=int, default=default.lsr, help='seq loss flag')
   parser.add_argument('--seq_loss_factor', type=float, default=default.seq_loss_factor, help='seq loss factor')
   parser.add_argument('--aux_loss_factor', type=float, default=default.aux_loss_factor, help='aux loss factor')
+  parser.add_argument('--memonger', type=int, default=default.memonger, help='use memonger or not')
   args = parser.parse_args()
   return args
 
 
 def get_symbol(args):
   embedding = eval(config.net_name).get_symbol()
+  if args.memonger:    
+    embedding = memonger.search_plan(embedding)
   all_label = mx.symbol.Variable('seq_label')
   gt_label = all_label
   is_softmax = True

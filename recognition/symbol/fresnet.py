@@ -496,7 +496,7 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
         'version_act': config.net_act,
         'bn_mom': bn_mom,
         'workspace': workspace,
-        #'memonger': default.memonger
+        'memonger': default.memonger
         }
     """Return ResNet symbol of
     Parameters
