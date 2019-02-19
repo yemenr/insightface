@@ -171,7 +171,7 @@ default.per_batch_size = 128
 default.ckpt = 3
 default.lr_steps = '100000,160000,220000'
 default.models_root = './models'
-
+default.memonger = 0
 
 def generate_config(_network, _dataset, _loss):
     for k, v in loss[_loss].items():

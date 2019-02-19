@@ -20,6 +20,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'eval'))
 import verification
 sys.path.append(os.path.join(os.path.dirname(__file__), 'symbol'))
 import fresnet
+sys.path.append(os.path.join(os.path.dirname(__file__), 'memonger'))
+import memonger
 import fmobilefacenet
 import fmobilenet
 import fmnasnet
@@ -54,12 +56,15 @@ def parse_args():
   parser.add_argument('--frequent', type=int, default=default.frequent, help='')
   parser.add_argument('--per-batch-size', type=int, default=default.per_batch_size, help='batch size in each context')
   parser.add_argument('--kvstore', type=str, default=default.kvstore, help='kvstore setting')
+  parser.add_argument('--memonger', type=int, default=default.memonger, help='use memonger or not')
   args = parser.parse_args()
   return args
 
 
 def get_symbol(args):
   embedding = eval(config.net_name).get_symbol()
+  if args.memonger:    
+    embedding = memonger.search_plan(embedding)
   all_label = mx.symbol.Variable('softmax_label')
   gt_label = all_label
   is_softmax = True
