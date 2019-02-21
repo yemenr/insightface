@@ -21,7 +21,7 @@ config.fc7_wd_mult = 1.0
 config.fc7_no_bias = False
 config.max_steps = 0
 config.data_rand_mirror = True
-config.data_cutoff = False
+config.data_cutoff = 0
 config.data_color = 0
 config.data_images_filter = 0
 
@@ -92,12 +92,30 @@ network.mnas025.net_multiplier = 0.25
 # dataset settings
 dataset = edict()
 
+dataset.multidata = edict()
+dataset.multidata.dataset = 'multidata'
+dataset.multidata.dataset_path = ['/home/ubuntu/camel/data/faces_emore','/home/ubuntu/camel/data/glint_cn']
+#dataset.multidata.dataset_path = ['/home/ubuntu/camel/workspace/data/test_data/id/output','/home/ubuntu/camel/workspace/data/test_data/seq']
+dataset.multidata.num_classes = [85742,93979]
+#dataset.multidata.num_classes = [64,489]
+dataset.multidata.image_shape = (112,112,3)
+dataset.multidata.val_targets = ['lfw', 'surveillance']
+#dataset.multidata.val_targets = []
+
 dataset.emore = edict()
 dataset.emore.dataset = 'emore'
 dataset.emore.dataset_path = '../datasets/faces_emore'
 dataset.emore.num_classes = 85742
 dataset.emore.image_shape = (112,112,3)
-dataset.emore.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
+#dataset.emore.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
+dataset.emore.val_targets = []
+
+dataset.glint_asia = edict()
+dataset.glint_asia.dataset = 'glint_asia'
+dataset.glint_asia.dataset_path = '/home/ubuntu/dataset/glint_asia'
+dataset.glint_asia.num_classes = 93979
+dataset.glint_asia.image_shape = (112,112,3)
+dataset.glint_asia.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
 
 loss = edict()
 loss.softmax = edict()
@@ -149,12 +167,27 @@ loss.atriplet.triplet_max_ap = 0.0
 loss.atriplet.per_batch_size = 60
 loss.atriplet.lr = 0.05
 
+# auxiliary loss
+auxloss = edict()
+
+auxloss.center = edict()
+auxloss.center.auxloss_name = 'center'
+auxloss.center.center_alpha = 0.05
+
+auxloss.git = edict()
+auxloss.git.auxloss_name = 'git'
+auxloss.git.center_alpha = 0.05
+auxloss.git.git_alpha = 0.1
+auxloss.git.git_beta = 1
+auxloss.git.git_p = 1.0
+
 # default settings
 default = edict()
 
 # default network
 default.network = 'r100'
-default.pretrained = ''
+default.pretrained = '/home/ubuntu/camel/workspace/projects/insightface/recognition/models/20190220111007/r100-arcface-emore/model'
+#default.pretrained = ''
 default.pretrained_epoch = 1
 # default dataset
 default.dataset = 'emore'
@@ -171,9 +204,16 @@ default.per_batch_size = 128
 default.ckpt = 3
 default.lr_steps = '100000,160000,220000'
 default.models_root = './models'
-default.memonger = 0
 
-def generate_config(_network, _dataset, _loss):
+default.auxloss = 'center'
+# sequence loss 
+default.lsr = False
+default.seq_loss_factor = 1.0
+# auxiliary loss
+default.aux_loss_factor = 1.0
+default.memonger = 1
+
+def generate_config(_network, _dataset, _loss, _auxloss=None):
     for k, v in loss[_loss].items():
       config[k] = v
       if k in default:
@@ -186,9 +226,16 @@ def generate_config(_network, _dataset, _loss):
       config[k] = v
       if k in default:
         default[k] = v
+    if _auxloss != None:
+        for k, v in auxloss[_auxloss].items():
+            config[k] = v
+            if k in default:
+                default[k] = v
+          
     config.loss = _loss
     config.network = _network
     config.dataset = _dataset
+    config.auxloss = _auxloss
     config.num_workers = 1
     if 'DMLC_NUM_WORKER' in os.environ:
       config.num_workers = int(os.environ['DMLC_NUM_WORKER'])

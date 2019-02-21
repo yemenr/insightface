@@ -26,7 +26,7 @@ import fmnasnet
 import fdensenet
 import time
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
-import center_loss
+import center_loss, seq_loss
 sys.path.append(os.path.join(os.path.dirname(__file__), 'memonger'))
 import memonger
 
@@ -183,11 +183,11 @@ def get_symbol(args):
       center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
       out_list.append(center_loss)
     ## git loss
-    #elif args.auxloss == 'git': 
+    elif args.auxloss == 'git': 
       #nembedding = mx.symbol.L2Normalization(embedding, mode='instance')  # do norm
-     # center_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='center_loss_', op_type='centerloss', num_class=(args.id_num_classes+args.seq_num_classes), alpha=config.center_alpha, scale=args.aux_loss_factor, batchsize=args.per_batch_size)
-      #center_loss = mx.symbol.MakeLoss(name='center_loss', data=center_loss_, normalization='valid')
-      #out_list.append(center_loss)
+      git_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='git_loss_', op_type='gitloss', num_classes=(args.id_num_classes, args.seq_num_classes), git_params=(config.center_alpha, config.git_alpha, config.git_beta, config.git_p), scale=args.aux_loss_factor, batchsize=args.per_batch_size)
+      git_loss = mx.symbol.MakeLoss(name='git_loss', data=git_loss_, normalization='valid')
+      out_list.append(git_loss)
   else:
     out_list.append(mx.sym.BlockGrad(gt_label))
     out_list.append(triplet_loss)    
