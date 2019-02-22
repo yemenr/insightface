@@ -3,9 +3,10 @@ import os
 # MXNET_CPU_WORKER_NTHREADS must be greater than 1 for custom op to work on CPU
 #os.environ['MXNET_CPU_WORKER_NTHREADS'] = '2'
 import mxnet as mx
+import random
 
 class GitLoss(mx.operator.CustomOp):
-    def __init__(self, ctx, shapes, dtypes, id_num_class, id_num_class, git_params, scale=1.0):
+    def __init__(self, ctx, shapes, dtypes, id_num_class, seq_num_class, git_params, scale=1.0):
         if not len(shapes[0]) == 2:
             raise ValueError('dim for input_data shoudl be 2 for GitLoss')
 
@@ -13,6 +14,7 @@ class GitLoss(mx.operator.CustomOp):
         self.scale = scale
         self.id_num_class = id_num_class
         self.seq_num_class = seq_num_class
+        git_params = git_params[1:-1].split(',')
         self.center_alpha = float(git_params[0])
         self.git_alpha = float(git_params[1])
         self.git_beta = float(git_params[2])
@@ -90,12 +92,12 @@ class GitLoss(mx.operator.CustomOp):
 
 @mx.operator.register("gitloss")
 class GitLossProp(mx.operator.CustomOpProp):
-    def __init__(self, num_classes, git_params, scale=1.0, batchsize=64):
-        super(CenterLossProp, self).__init__(need_top_grad=False)
+    def __init__(self, id_num_class, seq_num_class, git_params, scale=1.0, batchsize=64):
+        super(GitLossProp, self).__init__(need_top_grad=False)
 
         # convert it to numbers        
-        self.id_num_class = int(num_classes[0])
-        self.seq_num_class = int(num_class[1])
+        self.id_num_class = int(id_num_class)
+        self.seq_num_class = int(seq_num_class)
         self.git_params = git_params    
         self.scale = float(scale)
         self.batchsize = int(batchsize)
@@ -127,4 +129,4 @@ class GitLossProp(mx.operator.CustomOpProp):
         return [data_shape, label_shape], [output_shape], [diff_shape, center_shape, sum_shape]
 
     def create_operator(self, ctx, shapes, dtypes):
-        return CenterLoss(ctx, shapes, dtypes, self.id_num_class, self.seq_num_class, self.git_params, self.scale)
+        return GitLoss(ctx, shapes, dtypes, self.id_num_class, self.seq_num_class, self.git_params, self.scale)
