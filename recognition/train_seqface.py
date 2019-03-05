@@ -184,8 +184,8 @@ def get_symbol(args):
       out_list.append(center_loss)
     ## git loss
     elif args.auxloss == 'git': 
-      #nembedding = mx.symbol.L2Normalization(embedding, mode='instance')  # do norm
-      git_loss_ = mx.symbol.Custom(data=embedding, label=gt_label, name='git_loss_', op_type='gitloss', id_num_class=args.id_num_classes, seq_num_class=args.seq_num_classes, git_params=(config.center_alpha, config.git_alpha, config.git_beta, config.git_p), scale=args.aux_loss_factor, batchsize=args.per_batch_size)
+      nembedding = mx.symbol.L2Normalization(embedding, mode='instance')  # do norm
+      git_loss_ = mx.symbol.Custom(data=nembedding, label=gt_label, name='git_loss_', op_type='gitloss', id_num_class=args.id_num_classes, seq_num_class=args.seq_num_classes, git_params=(config.center_alpha, config.git_alpha, config.git_beta, config.git_p), scale=args.aux_loss_factor, batchsize=args.per_batch_size)
       git_loss = mx.symbol.MakeLoss(name='git_loss', data=git_loss_, normalization='valid')
       out_list.append(git_loss)
   else:
