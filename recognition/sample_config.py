@@ -12,6 +12,7 @@ config.net_se = 0
 config.net_act = 'prelu'
 config.net_unit = 3
 config.net_input = 1
+config.net_blocks = [1,4,6,2]
 config.net_output = 'E'
 config.net_multiplier = 1.0
 config.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
@@ -24,6 +25,7 @@ config.data_rand_mirror = True
 config.data_cutoff = 0
 config.data_color = 0
 config.data_images_filter = 0
+config.count_flops = True
 
 
 # network settings
@@ -32,6 +34,11 @@ network = edict()
 network.r100 = edict()
 network.r100.net_name = 'fresnet'
 network.r100.num_layers = 100
+
+network.r100fc = edict()
+network.r100fc.net_name = 'fresnet'
+network.r100fc.num_layers = 100
+network.r100fc.net_output = 'FC'
 
 network.r50 = edict()
 network.r50.net_name = 'fresnet'
@@ -58,6 +65,12 @@ network.y1 = edict()
 network.y1.net_name = 'fmobilefacenet'
 network.y1.emb_size = 128
 network.y1.net_output = 'GDC'
+
+network.y2 = edict()
+network.y2.net_name = 'fmobilefacenet'
+network.y2.emb_size = 256
+network.y2.net_output = 'GDC'
+network.y2.net_blocks = [2,8,16,4]
 
 network.m1 = edict()
 network.m1.net_name = 'fmobilenet'
@@ -115,6 +128,13 @@ dataset.emore_glint.dataset_path = '/home/ubuntu/camel/data/emore_glint'
 dataset.emore_glint.num_classes = 179721
 dataset.emore_glint.image_shape = (112,112,3)
 dataset.emore_glint.val_targets = ['lfw', 'surveillance']
+
+dataset.retina = edict()
+dataset.retina.dataset = 'retina'
+dataset.retina.dataset_path = '../datasets/ms1m-retinaface-t1'
+dataset.retina.num_classes = 93431
+dataset.retina.image_shape = (112,112,3)
+dataset.retina.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
 
 loss = edict()
 loss.softmax = edict()
@@ -210,7 +230,7 @@ default.mom = 0.9
 default.per_batch_size = 128
 default.ckpt = 3
 default.lr_steps = '80000,140000,180000'
-#default.lr_steps = '15000,60000,85000'
+#default.lr_steps = '100000,160000,220000'
 default.models_root = './models'
 
 default.auxloss = 'center'

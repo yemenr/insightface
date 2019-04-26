@@ -572,6 +572,14 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
           bottle_neck=bottle_neck, **kwargs)
         if default.memonger:
           body._set_attr(mirror_stage='True')
+    if bottle_neck:
+      body = Conv(data=body, num_filter=512, kernel=(1,1), stride=(1,1), pad=(0,0),
+                                no_bias=True, name="convd", workspace=workspace)
+      body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bnd', cudnn_off=default.memonger)
+      body = Act(data=body, act_type=act_type, name='relud')
+	  
+	  if default.memonger:
+        body._set_attr(mirror_stage='True')
 
     fc1 = symbol_utils.get_fc1(body, num_classes, fc_type)
     
@@ -587,7 +595,7 @@ def get_symbol():
     """
     num_classes = config.emb_size
     num_layers = config.num_layers
-    if num_layers >= 101:
+    if num_layers >= 500:
         filter_list = [64, 256, 512, 1024, 2048]
         bottle_neck = True
     else:
@@ -606,10 +614,16 @@ def get_symbol():
         units = [3, 6, 24, 3]
     elif num_layers == 90:
         units = [3, 8, 30, 3]
+    elif num_layers == 98:
+        units = [3, 4, 38, 3]
+    elif num_layers == 99:
+        units = [3, 8, 35, 3]
     elif num_layers == 100:
         units = [3, 13, 30, 3]
     elif num_layers == 124:
         units = [3, 13, 40, 5]
+    elif num_layers == 160:
+        units = [3, 24, 49, 3]
     elif num_layers == 101:
         units = [3, 4, 23, 3]
     elif num_layers == 152:
@@ -621,9 +635,22 @@ def get_symbol():
     else:
         raise ValueError("no experiments done on num_layers {}, you can do it yourself".format(num_layers))
 
-    return resnet(units       = units,
+    net = resnet(units       = units,
                   num_stages  = num_stages,
                   filter_list = filter_list,
                   num_classes = num_classes,
                   bottle_neck = bottle_neck)
+
+    #if config.memonger:
+    #  dshape = (config.per_batch_size, config.image_shape[2], config.image_shape[0], config.image_shape[1])
+    #  net_mem_planned = memonger.search_plan(net, data=dshape)
+    #  old_cost = memonger.get_cost(net, data=dshape)
+    #  new_cost = memonger.get_cost(net_mem_planned, data=dshape)
+
+    #  print('Old feature map cost=%d MB' % old_cost)
+    #  print('New feature map cost=%d MB' % new_cost)
+    #  net = net_mem_planned
+    return net
+
+
 
