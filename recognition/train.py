@@ -105,6 +105,43 @@ def get_symbol(args):
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
+  elif config.loss_name == 'svx_softmax':
+    _weight = mx.symbol.Variable("fc7_weight", shape=(config.num_classes, config.emb_size), 
+        lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult, init=mx.init.Normal(0.01))
+    s = config.loss_s
+    _weight = mx.symbol.L2Normalization(_weight, mode='instance')
+    nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')*s
+    fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=config.num_classes, name='fc7')
+    if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
+      if config.loss_m1==1.0 and config.loss_m2==0.0:
+        s_m = s*config.loss_m3
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = s_m, off_value = 0.0)
+        fc7 = fc7-gt_one_hot
+      else:
+        zy = mx.sym.pick(fc7, gt_label, axis=1)
+        cos_t = zy/s
+        t = mx.sym.arccos(cos_t)
+        if config.loss_m1!=1.0:
+          t = t*config.loss_m1
+        if config.loss_m2>0.0:
+          t = t+config.loss_m2
+        body = mx.sym.cos(t)
+        if config.loss_m3>0.0:
+          body = body - config.loss_m3
+        body = mx.sym.expand_dims(body, 1)
+        
+        # inter class  
+        ## mask selection
+        cosTheta = fc7 / s
+        hardMask = mx.sym.broadcast_greater(cosTheta, body)
+        easyMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
+        ## calculation of interCosTheta
+        interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + cosTheta * easyMask
+        
+        # intra class        
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
+        intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
+        fc7 = (interCosTheta + intraCosTheta) * s
   elif config.loss_name.find('triplet')>=0:
     is_softmax = False
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')

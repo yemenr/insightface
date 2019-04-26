@@ -157,7 +157,9 @@ class GitLoss(mx.operator.CustomOp):
                 sum_ = sum_ + diff[i]
             delta_c = sum_ / (1 + len(sample_index))
             center[label] += self.center_alpha * delta_c
-
+            # add normalization for centers
+            #center[label] = mx.ndarray.L2Normalization(center[label].reshape(shape=(1,-1))).reshape(shape=(-1,))
+            center[label] /= mx.nd.sqrt(mx.nd.sum(center[label]**2)+1e-10)
 
 @mx.operator.register("gitloss")
 class GitLossProp(mx.operator.CustomOpProp):

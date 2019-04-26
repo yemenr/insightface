@@ -94,7 +94,7 @@ dataset = edict()
 
 dataset.multidata = edict()
 dataset.multidata.dataset = 'multidata'
-dataset.multidata.dataset_path = ['/home/ubuntu/camel/data/faces_emore','/home/ubuntu/camel/data/glint_cn']
+dataset.multidata.dataset_path = ['/home/ubuntu/camel/data/faces_emore','/home/ubuntu/camel/data/glint_asia']
 #dataset.multidata.dataset_path = ['/home/ubuntu/camel/workspace/data/test_data/id/output','/home/ubuntu/camel/workspace/data/test_data/seq']
 dataset.multidata.num_classes = [85742,93979]
 #dataset.multidata.num_classes = [64,489]
@@ -104,18 +104,17 @@ dataset.multidata.val_targets = ['lfw', 'surveillance']
 
 dataset.emore = edict()
 dataset.emore.dataset = 'emore'
-dataset.emore.dataset_path = '../datasets/faces_emore'
+dataset.emore.dataset_path = '/home/ubuntu/camel/data/faces_emore'
 dataset.emore.num_classes = 85742
 dataset.emore.image_shape = (112,112,3)
-#dataset.emore.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
-dataset.emore.val_targets = []
+dataset.emore.val_targets = ['surveillance']
 
-dataset.glint_asia = edict()
-dataset.glint_asia.dataset = 'glint_asia'
-dataset.glint_asia.dataset_path = '/home/ubuntu/dataset/glint_asia'
-dataset.glint_asia.num_classes = 93979
-dataset.glint_asia.image_shape = (112,112,3)
-dataset.glint_asia.val_targets = ['lfw', 'cfp_fp', 'agedb_30']
+dataset.emore_glint = edict()
+dataset.emore_glint.dataset = 'emore_glint'
+dataset.emore_glint.dataset_path = '/home/ubuntu/camel/data/emore_glint'
+dataset.emore_glint.num_classes = 179721
+dataset.emore_glint.image_shape = (112,112,3)
+dataset.emore_glint.val_targets = ['lfw', 'surveillance']
 
 loss = edict()
 loss.softmax = edict()
@@ -134,6 +133,14 @@ loss.arcface.loss_s = 64.0
 loss.arcface.loss_m1 = 1.0
 loss.arcface.loss_m2 = 0.5
 loss.arcface.loss_m3 = 0.0
+
+loss.svxface = edict()
+loss.svxface.loss_name = 'svx_softmax'
+loss.svxface.loss_s = 64.0
+loss.svxface.loss_m1 = 1.0
+loss.svxface.loss_m2 = 0.5
+loss.svxface.loss_m3 = 0.0
+loss.svxface.mask = 1.2
 
 loss.cosface = edict()
 loss.cosface.loss_name = 'margin_softmax'
@@ -177,17 +184,17 @@ auxloss.center.center_alpha = 0.05
 auxloss.git = edict()
 auxloss.git.auxloss_name = 'git'
 auxloss.git.center_alpha = 0.05
-auxloss.git.git_alpha = 0.1
-auxloss.git.git_beta = 1
-auxloss.git.git_p = 1.0
+auxloss.git.git_alpha = 0.01
+auxloss.git.git_beta = 0.1
+auxloss.git.git_p = 0.001
 
 # default settings
 default = edict()
 
 # default network
 default.network = 'r100'
-default.pretrained = '/home/ubuntu/camel/workspace/projects/insightface/recognition/models/20190220111007/r100-arcface-emore/model'
-#default.pretrained = ''
+#default.pretrained = '/home/ubuntu/camel/workspace/projects/insightface/recognition/models/20190320104135/r100-arcface-emore_glint/model'
+default.pretrained = ''
 default.pretrained_epoch = 1
 # default dataset
 default.dataset = 'emore'
@@ -202,7 +209,8 @@ default.wd = 0.0005
 default.mom = 0.9
 default.per_batch_size = 128
 default.ckpt = 3
-default.lr_steps = '100000,160000,220000'
+default.lr_steps = '80000,140000,180000'
+#default.lr_steps = '15000,60000,85000'
 default.models_root = './models'
 
 default.auxloss = 'center'
