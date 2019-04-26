@@ -12,6 +12,8 @@ Parallel acceleration on both feature x and centre W. Setting: ResNet 50, batch 
 
 Parallel calculation by simple matrix partition. Setting: ResNet 50, batch size 8*64, feature dimension 512, float point 32, identity number 1 Million, GPU 8 * 1080ti (11GB). Communication cost: 1MB (feature x). Training speed: 800 samples/second.
 
+**Note:** Replace ``train.py`` with ``train_parall.py`` in following examples if you want to use parallel acceleration.
+
 ### Model Training
 
 1. Install `MXNet` with GPU support (Python 2.7).
@@ -85,8 +87,8 @@ If you find *ArcFace* useful in your research, please consider to cite the follo
 @article{deng2018arcface,
 title={ArcFace: Additive Angular Margin Loss for Deep Face Recognition},
 author={Deng, Jiankang and Guo, Jia and Niannan, Xue and Zafeiriou, Stefanos},
-journal={arXiv:1801.07698},
-year={2018}
+journal={CVPR},
+year={2019}
 }
 ```
 
