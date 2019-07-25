@@ -122,7 +122,8 @@ class ParallModule(BaseModule):
       #ag = {}
       #ax = {}
       rk = []
-      for k,v in g.iteritems():
+      for k in g:
+        v = g[k]
         if k.startswith('fc7'):
           p1 = k.find('_')
           p2 = k.rfind('_')
