@@ -578,8 +578,8 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
       body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bnd', cudnn_off=default.memonger)
       body = Act(data=body, act_type=act_type, name='relud')
 	  
-	  if default.memonger:
-        body._set_attr(mirror_stage='True')
+    if default.memonger:
+      body._set_attr(mirror_stage='True')
 
     fc1 = symbol_utils.get_fc1(body, num_classes, fc_type)
     

@@ -1,6 +1,7 @@
 import sys
 import os
 from scipy import misc
+import imageio
 
 input_dir = sys.argv[1]
 output_dir = sys.argv[2]
@@ -21,7 +22,7 @@ for person_name in os.listdir(input_dir):
             print('image not found (%s)'%imgPath)
             continue
         try:
-            img = misc.imread(imgPath)
+            img = imageio.imread(imgPath)
         except (IOError, ValueError, IndexError) as e:
             errorMessage = '{}: {}'.format(imgPath, e)
             print(errorMessage)
