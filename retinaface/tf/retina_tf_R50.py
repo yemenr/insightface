@@ -323,16 +323,17 @@ def batch_normalization(input, name, **kwargs):
 def convolution(input, name, group, **kwargs):
     w = tf.Variable(__weights_dict[name]['weights'], trainable=is_train, name=name + "_weight")
     if group == 1:
-        layer = tf.nn.convolution(input, w, name=name, **kwargs)
+        layer = tf.nn.convolution(input, w, **kwargs)
     else:
         weight_groups = tf.split(w, num_or_size_splits=group, axis=-1)
         xs = tf.split(input, num_or_size_splits=group, axis=-1)
-        convolved = [tf.nn.convolution(x, weight, name=name, **kwargs) for
+        convolved = [tf.nn.convolution(x, weight, **kwargs) for
                     (x, weight) in zip(xs, weight_groups)]
         layer = tf.concat(convolved, axis=-1)
 
     if 'bias' in __weights_dict[name]:
         b = tf.Variable(__weights_dict[name]['bias'], trainable=is_train, name=name + "_bias")
         layer = layer + b
+    layer = tf.identity(layer, name=name)
     return layer
 
