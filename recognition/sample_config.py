@@ -7,6 +7,7 @@ config = edict()
 config.bn_mom = 0.9
 config.workspace = 256
 config.emb_size = 512
+#config.ckpt_embedding = True
 config.ckpt_embedding = False
 config.net_se = 0
 config.net_act = 'prelu'
@@ -161,6 +162,17 @@ loss.svxface.loss_m1 = 1.0
 loss.svxface.loss_m2 = 0.5
 loss.svxface.loss_m3 = 0.0
 loss.svxface.mask = 1.2
+
+loss.marginface = edict()
+loss.marginface.loss_name = 'svx_margin'
+loss.marginface.loss_s = 64.0
+loss.marginface.loss_m1 = 1.0
+loss.marginface.loss_m2 = 0.5
+loss.marginface.loss_m3 = 0.0
+loss.marginface.loss_nm1 = 1.0
+loss.marginface.loss_nm2 = 0.5
+loss.marginface.loss_nm3 = 0.0
+loss.marginface.mask = 1.2
 
 loss.cosface = edict()
 loss.cosface.loss_name = 'margin_softmax'

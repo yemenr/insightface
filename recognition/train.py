@@ -135,15 +135,76 @@ def get_symbol(args):
         # inter class  
         ## mask selection
         cosTheta = fc7 / s
-        hardMask = mx.sym.broadcast_greater(cosTheta, body)
-        easyMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
+        nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
+        nonGroundTruthCos = cosTheta * nonGroundTruthMask
+        hardMask = mx.sym.broadcast_greater_equal(nonGroundTruthCos, body)
         ## calculation of interCosTheta
-        interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + cosTheta * easyMask
+        interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + nonGroundTruthCos
         
         # intra class        
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
         intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
         fc7 = (interCosTheta + intraCosTheta) * s
+  elif config.loss_name == 'svx_margin':
+    _weight = mx.symbol.Variable("fc7_weight", shape=(config.num_classes, config.emb_size), 
+        lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult, init=mx.init.Normal(0.01))
+    s = config.loss_s
+    _weight = mx.symbol.L2Normalization(_weight, mode='instance')
+    nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')
+    fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=config.num_classes, name='fc7')
+    if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
+      if config.loss_m1==1.0 and config.loss_m2==0.0:
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = config.loss_m3, off_value = 0.0)
+        fc7 = fc7-gt_one_hot
+      else:
+        cos_t = mx.sym.pick(fc7, gt_label, axis=1)
+        t0 = mx.sym.arccos(cos_t)
+        t = mx.sym.arccos(cos_t)
+        if config.loss_m1!=1.0:
+          t = t*config.loss_m1
+        if config.loss_m2>0.0:
+          t = t+config.loss_m2
+        # 0<=theta+m<=pi
+        thMask = mx.sym.broadcast_greater_equal(t, 3.1415926)
+        t = mx.sym.where(thMask, t0, t) # boundary protect
+        body = mx.sym.cos(t)
+        #sin_m = math.sin(m)
+        #mm = sin_m * m
+        #keep_val = s*(cos_t - mm)   #tricks : additive margin instead
+        if config.loss_m3>0.0:
+          body = body - config.loss_m3
+        body = mx.sym.expand_dims(body, 1)
+        
+      # inter class  
+      ## mask selection
+      cosTheta = fc7
+      nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
+      nonGroundTruthCos = cosTheta * nonGroundTruthMask
+      
+      ### add margin for non groundth class
+      if config.loss_nm1 > 1.0 or config.loss_nm2 > 0.0 or config.loss_nm3 > 0.0:
+        nt0 = mx.sym.arccos(nonGroundTruthCos)
+        nt = mx.sym.arccos(nonGroundTruthCos)
+        if config.loss_nm1!=1.0:
+          nt = nt/config.loss_nm1
+        if config.loss_nm2>0.0:
+          nt = t-config.loss_nm2
+        # 0<=nm1*theta-nm2<=pi
+        nthMask = mx.sym.broadcast_lesser_equal(t, 0)
+        nt = mx.sym.where(nthMask, nt0, nt)
+        nonGroundTruthCos = mx.sym.cos(nt)
+        if config.loss_nm3>0.0:
+          nonGroundTruthCos = nonGroundTruthCos + config.loss_nm3
+        
+      hardMask = mx.sym.broadcast_greater_equal(nonGroundTruthCos, body)
+      ## calculation of interCosTheta
+      interCosTheta = ((config.mask - 1) * nonGroundTruthCos + config.mask - 1.0) * hardMask + nonGroundTruthCos
+      
+      # intra class        
+      gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
+      intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
+      fc7 = interCosTheta + intraCosTheta
+    fc7 *= s
   elif config.loss_name.find('triplet')>=0:
     is_softmax = False
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')

@@ -47,6 +47,7 @@ def read_list(path_in):
         identities = []
         last = [-9999999, -1]
         _id = 1
+        baseDir = os.path.dirname(path_in)
         while True:
             line = fin.readline()
             if not line:
@@ -54,8 +55,14 @@ def read_list(path_in):
             item = edict()
             item.flag = 0
             item.image_path, label, item.bbox, item.landmark, item.aligned = face_preprocess.parse_lst_line(line)
+            if not os.path.exists(item.image_path):
+              pathItemList = item.image_path.split('/')
+              item.image_path = os.path.join(baseDir, pathItemList[-3], pathItemList[-2], pathItemList[-1])
+              if not os.path.exists(item.image_path):
+                print('path error! ignore line: ', line)
+                continue
             if not item.aligned and item.landmark is None:
-              print('ignore line', line)
+              print('ignore line: ', line)
               continue
             item.id = _id   #item index
             item.label = [label, item.aligned]
