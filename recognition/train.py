@@ -35,7 +35,7 @@ logger.setLevel(logging.INFO)
 
 
 args = None
-
+fixed_param_names = []
 
 
 def parse_args():
@@ -136,10 +136,9 @@ def get_symbol(args):
         ## mask selection
         cosTheta = fc7 / s
         nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
-        nonGroundTruthCos = cosTheta * nonGroundTruthMask
-        hardMask = mx.sym.broadcast_greater_equal(nonGroundTruthCos, body)
+        hardMask = mx.sym.broadcast_greater_equal(cosTheta, body) * nonGroundTruthMask
         ## calculation of interCosTheta
-        interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + nonGroundTruthCos
+        interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + cosTheta * nonGroundTruthMask
         
         # intra class        
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
@@ -165,7 +164,9 @@ def get_symbol(args):
         if config.loss_m2>0.0:
           t = t+config.loss_m2
         # 0<=theta+m<=pi
-        thMask = mx.sym.broadcast_greater_equal(t, 3.1415926)
+        piSymbol = mx.sym.Variable(name='PI', shape=(1, ), lr_mult=0, init=mx.init.Constant(3.1415926))
+        thMask = mx.sym.broadcast_greater_equal(t, piSymbol)
+        fixed_param_names.append("PI")
         t = mx.sym.where(thMask, t0, t) # boundary protect
         body = mx.sym.cos(t)
         #sin_m = math.sin(m)
@@ -179,32 +180,33 @@ def get_symbol(args):
       ## mask selection
       cosTheta = fc7
       nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
-      nonGroundTruthCos = cosTheta * nonGroundTruthMask
       
       ### add margin for non groundth class
       if config.loss_nm1 > 1.0 or config.loss_nm2 > 0.0 or config.loss_nm3 > 0.0:
-        nt0 = mx.sym.arccos(nonGroundTruthCos)
-        nt = mx.sym.arccos(nonGroundTruthCos)
+        nt0 = mx.sym.arccos(cosTheta)
+        nt = mx.sym.arccos(cosTheta)
         if config.loss_nm1!=1.0:
           nt = nt/config.loss_nm1
         if config.loss_nm2>0.0:
-          nt = t-config.loss_nm2
+          nt = nt-config.loss_nm2
         # 0<=nm1*theta-nm2<=pi
-        nthMask = mx.sym.broadcast_lesser_equal(t, 0)
+        zeroSymbol = mx.sym.Variable(name='ZERO', shape=(1, ), lr_mult=0, init=mx.init.Constant(0))
+        nthMask = mx.sym.broadcast_lesser(nt, zeroSymbol)
+        fixed_param_names.append("ZERO")
         nt = mx.sym.where(nthMask, nt0, nt)
-        nonGroundTruthCos = mx.sym.cos(nt)
+        cosTheta = mx.sym.cos(nt)
         if config.loss_nm3>0.0:
-          nonGroundTruthCos = nonGroundTruthCos + config.loss_nm3
+          cosTheta = cosTheta + config.loss_nm3
         
-      hardMask = mx.sym.broadcast_greater_equal(nonGroundTruthCos, body)
+      hardMask = mx.sym.broadcast_greater_equal(cosTheta, body)*nonGroundTruthMask
       ## calculation of interCosTheta
-      interCosTheta = ((config.mask - 1) * nonGroundTruthCos + config.mask - 1.0) * hardMask + nonGroundTruthCos
+      interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0)*hardMask + cosTheta*nonGroundTruthMask
       
       # intra class        
       gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
       intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
       fc7 = interCosTheta + intraCosTheta
-    fc7 *= s
+    fc7 = fc7 * s
   elif config.loss_name.find('triplet')>=0:
     is_softmax = False
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')
@@ -237,7 +239,7 @@ def get_symbol(args):
     if config.ce_loss:
       #ce_loss = mx.symbol.softmax_cross_entropy(data=fc7, label = gt_label, name='ce_loss')/args.per_batch_size
       body = mx.symbol.SoftmaxActivation(data=fc7)
-      body = mx.symbol.log(body)
+      body = mx.symbol.log(body+1e-28)
       _label = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = -1.0, off_value = 0.0)
       body = body*_label
       ce_loss = mx.symbol.sum(body)/args.per_batch_size
@@ -311,6 +313,7 @@ def train_net(args):
     model = mx.mod.Module(
         context       = ctx,
         symbol        = sym,
+        fixed_param_names=fixed_param_names
     )
     val_dataiter = None
 
