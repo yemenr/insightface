@@ -29,6 +29,8 @@ import fmobilenet
 import fmnasnet
 import fdensenet
 import time
+sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
+import noise_layer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -151,6 +153,7 @@ def get_symbol(args):
     _weight = mx.symbol.L2Normalization(_weight, mode='instance')
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')
     fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=config.num_classes, name='fc7')
+    cosData = fc7
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       if config.loss_m1==1.0 and config.loss_m2==0.0:
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = config.loss_m3, off_value = 0.0)
@@ -233,6 +236,15 @@ def get_symbol(args):
       triplet_loss = mx.symbol.mean(triplet_loss)
     triplet_loss = mx.symbol.MakeLoss(triplet_loss)
   out_list = [mx.symbol.BlockGrad(embedding)]
+  
+  # noise layer implementation
+  if config.noise_layer:
+    fc7 = fc7 / config.loss_s
+    
+    noiseLogits, noiseRatio = mx.symbol.Custom(marginData=fc7, cosData=cosData, label=gt_label, name='noise', op_type='noiselayer')
+    
+    fc7 = noiseLogits * config.loss_s
+  
   if is_softmax:
     softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid')
     out_list.append(softmax)

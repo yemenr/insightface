@@ -27,6 +27,7 @@ config.data_cutoff = 0
 config.data_color = 0
 config.data_images_filter = 0
 config.count_flops = True
+config.noise_layer = True
 
 
 # network settings

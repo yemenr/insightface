@@ -7,6 +7,7 @@ import os
 import argparse
 import numpy as np
 import mxnet as mx
+import pdb
 
 parser = argparse.ArgumentParser(description='face model slim')
 # general
@@ -19,10 +20,25 @@ prefix = _vec[0]
 epoch = int(_vec[1])
 print('loading',prefix, epoch)
 sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
+
+thres = 1e-15
+# modify params
+for k,v in arg_params.items():
+  absV = v.abs()
+  Idx = absV < thres
+  newV = mx.nd.where(Idx, mx.nd.zeros_like(v), v)
+  arg_params[k] = newV
+
+for k,v in aux_params.items():
+  absV = v.abs()
+  Idx = absV < thres
+  newV = mx.nd.where(Idx, mx.nd.zeros_like(v), v)
+  aux_params[k] = newV
+
 all_layers = sym.get_internals()
 sym = all_layers['fc1_output']
 dellist = []
-for k,v in arg_params.iteritems():
+for k,v in arg_params.items():
   if k.startswith('fc7'):
     dellist.append(k)
 for d in dellist:
