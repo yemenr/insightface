@@ -7,6 +7,7 @@ import random
 import queue
 import pdb
 import math
+import numpy as np
 
 
 class NoiseLayer(mx.operator.CustomOp):
@@ -26,9 +27,9 @@ class NoiseLayer(mx.operator.CustomOp):
         self.hisFilterR = 2         # radius of mean filtering for the distribution
         
         self.samplesWeight = mx.nd.ones(shape=(self.batchSize, 1), ctx=ctx)
-        self.pdf = mx.nd.zeros(shape=(self.bins+1, ), dtype='float32', ctx=ctx)
-        self.filterPdf = mx.nd.zeros(shape=(self.bins+1, ), dtype='float32', ctx=ctx)
-        self.pcf = mx.nd.zeros(shape=(self.bins+1, ), dtype='float32', ctx=ctx)
+        self.pdf = np.array([0.0]*(self.bins+1), dtype='float32')
+        self.filterPdf = np.array([0.0]*(self.bins+1), dtype='float32')
+        self.pcf = np.array([0.0]*(self.bins+1), dtype='float32')
         self.binIdQueue = queue.Queue()
         self.queueSize = 0
         self.noiseRatio = mx.nd.ones(shape=(1, ), dtype='float32', ctx=ctx)
@@ -37,8 +38,8 @@ class NoiseLayer(mx.operator.CustomOp):
     
     def get_bin_id(self, cosData):
         binIds = self.bins * (cosData - self.valueLow) / (self.valueHigh - self.valueLow)
-        binIds = mx.nd.clip(binIds, 0, self.bins)
-        binIds = binIds.astype('int').astype('float32')
+        binIds = np.clip(binIds, 0, self.bins)
+        binIds = binIds.astype('int32')
         return binIds
         
     def delta(self, a, b):
@@ -53,7 +54,7 @@ class NoiseLayer(mx.operator.CustomOp):
         
     def get_cos(self, binIds):
         cosV = self.valueLow + (self.valueHigh-self.valueLow) * binIds / self.bins
-        cosV = mx.nd.clip(cosV, self.valueLow, self.valueHigh)
+        cosV = np.clip(cosV, self.valueLow, self.valueHigh)
         return cosV
         
     def cos2weight(self, binIds):
@@ -61,15 +62,15 @@ class NoiseLayer(mx.operator.CustomOp):
         # focus on all samples
         # weight1: normal state [0, 1]
         # constant value
-        weight1 = mx.nd.ones(shape=(self.batchSize, ), dtype='float32', ctx=self.ctx)
+        weight1 = np.ones(shape=(self.batchSize, ))
 
         # focus on simple&clean samples, we just offer some methods, you can try other method to archive the same purpose and get better effect.
         #someone interested in this method can try gradient-ascend-like methods, such as LRelu/tanh and so on, which we have simply tried and failed, but i still think it may make sense.
         # weight2: activative func [0, 1]
         # activation function, S or ReLu or SoftPlus
         # SoftPlus
-        weight2 = (1.0 + (10.0 * (binIds - self.ltBinId) / (self.rBinId - self.ltBinId)).exp()).log() / math.log(1.0 + math.exp(10.0))
-        weight2 = mx.nd.clip(weight2, 0.0, 1.0)
+        weight2 = np.log(1.0 + np.exp(10.0 * (binIds - self.ltBinId) / (self.rBinId - self.ltBinId))) / math.log(1.0 + math.exp(10.0))
+        weight2 = np.clip(weight2, 0.0, 1.0)
         #weight2 = clamp<Dtype>(log(1.0 + exp(10.0 * (bin_id - lt_bin_id_) / (r_bin_id_ - lt_bin_id_))) / log(1.0 + exp(10.0)), 0.0, 1.0)
         
         # ReLu (linear)
@@ -84,11 +85,11 @@ class NoiseLayer(mx.operator.CustomOp):
         # gauss distribution
         x = binIds
         u = self.rtBinId
-        onesX = mx.nd.ones_like(x)
+        onesX = np.ones_like(x)
         # a = (r_bin_id_ - u) / r// symmetric
-        a = mx.nd.where(x > u, onesX*((self.rBinId - u) / 2.576), onesX*((u - self.lBinId) / 2.576)) # asymmetric
+        a = np.where(x > u, onesX*((self.rBinId - u) / 2.576), onesX*((u - self.lBinId) / 2.576)) # asymmetric
         # a = x > u ? ((r_bin_id_ - u) / r) : ((u - l_bin_id_) / r)// asymmetric
-        weight3 = (-1.0 * (x - u) * (x - u) / (2 * a * a)).exp()
+        weight3 = np.exp(-1.0 * (x - u) * (x - u) / (2 * a * a))
         #  linear
         # a = (r_bin_id_ - u)// symmetric
         # a = x > u ? (r_bin_id_ - u) : (u - l_bin_id_)// asymmetric
@@ -99,15 +100,15 @@ class NoiseLayer(mx.operator.CustomOp):
         # 
         #  merge weight
         alpha = self.get_cos(binIds)
-        alpha = mx.nd.clip(alpha, 0.0, 1.0)
-        beta = 2.0 - 1.0 / (1.0 + (5-20*alpha).exp()) - 1.0 / (1.0 + (20*alpha-15).exp()) # [0, 1]
+        alpha = np.clip(alpha, 0.0, 1.0)
+        beta = 2.0 - 1.0 / (1.0 + np.exp(5-20*alpha)) - 1.0 / (1.0 + np.exp(20*alpha-15)) # [0, 1]
         #  linear
         # beta = fabs(2.0 * alpha - 1.0)//[0, 1]
     
         # alpha = 0.0 => beta = 1.0, weight = weight1
         # alpha = 0.5 => beta = 0.0, weight = weight2
         # alpha = 1.0 => beta = 1.0, weight = weight3
-        weight13 = mx.nd.where(alpha<0.5, weight1, weight3)
+        weight13 = np.where(alpha<0.5, weight1, weight3)
         weight = beta*weight13 + (1-beta) * weight2 # [0, 1]
         # weight = 1.0// normal method
         return weight
@@ -122,8 +123,10 @@ class NoiseLayer(mx.operator.CustomOp):
         noiseRatio = self.noiseRatio
         
         self.iter += 1
+        
+        npCosData = cosData.asnumpy()
         # update pdf
-        binIds = self.get_bin_id(cosData)
+        binIds = self.get_bin_id(npCosData)
         #print(binIds)
         for k in range(len(binIds)):
             idx = binIds[k]
@@ -164,16 +167,15 @@ class NoiseLayer(mx.operator.CustomOp):
             else:
                 mBinId = (lBinId_+rBinId_) // 2
                 # extreme points of the distribution
-                filterPdf_ = self.filterPdf.asnumpy()
-                tBinId = filterPdf_.argmax()
+                tBinId = self.filterPdf.argmax()
                 tBinIds = []
                 
                 for k in range(max(lBinId_, 5), min(rBinId_, self.bins-5)+1):
-                    if ((filterPdf_[k] >= filterPdf_[k-1]) and (filterPdf_[k] >= filterPdf_[k+1]) 
-                       and (filterPdf_[k] > filterPdf_[k-2]) and (filterPdf_[k] > filterPdf_[k+2]) 
-                       and (filterPdf_[k] > filterPdf_[k-3]+1) and (filterPdf_[k] > filterPdf_[k+3]+1) 
-                       and (filterPdf_[k] > filterPdf_[k-4]+2) and (filterPdf_[k] > filterPdf_[k+4]+2) 
-                       and (filterPdf_[k] > filterPdf_[k-5]+3) and (filterPdf_[k] > filterPdf_[k+5]+3)):
+                    if ((self.filterPdf[k] >= self.filterPdf[k-1]) and (self.filterPdf[k] >= self.filterPdf[k+1]) 
+                       and (self.filterPdf[k] > self.filterPdf[k-2]) and (self.filterPdf[k] > self.filterPdf[k+2]) 
+                       and (self.filterPdf[k] > self.filterPdf[k-3]+1) and (self.filterPdf[k] > self.filterPdf[k+3]+1) 
+                       and (self.filterPdf[k] > self.filterPdf[k-4]+2) and (self.filterPdf[k] > self.filterPdf[k+4]+2) 
+                       and (self.filterPdf[k] > self.filterPdf[k-5]+3) and (self.filterPdf[k] > self.filterPdf[k+5]+3)):
                         tBinIds.append(k)
                         k += 5
                 if len(tBinIds)==0:
@@ -187,12 +189,7 @@ class NoiseLayer(mx.operator.CustomOp):
                 else:
                     rtBinId_ = tBinId
                     ltBinId_ = min(tBinIds[0], mBinId) # fix
-                    #ltBinId_ = tBinIds[0] #not fix
-                
-                print("lBinId_: ", lBinId_)
-                print("rBinId_: ", rBinId_)
-                print("ltBinId_: ", ltBinId_)
-                print("rtBinId_: ", rtBinId_)
+                    #ltBinId_ = tBinIds[0] #not fix              
                 
                 self.lBinId += self.delta(lBinId_, self.lBinId)
                 self.rBinId += self.delta(rBinId_, self.rBinId)
@@ -207,8 +204,14 @@ class NoiseLayer(mx.operator.CustomOp):
                     noiseRatio[0] = 0.0
                                 
                 # Compute weight of each sample 
-                self.samplesWeight = self.cos2weight(binIds).reshape(shape=[-1,1])
-                print("self.samplesWeight: ", self.samplesWeight)
+                self.samplesWeight = mx.nd.array(self.cos2weight(binIds).reshape((-1,1)), dtype='float32', ctx=self.ctx)
+                if (self.iter % 2000 == 0):
+                    print("self.ctx: ", self.ctx)
+                    print("lBinId_: ", lBinId_)
+                    print("rBinId_: ", rBinId_)
+                    print("ltBinId_: ", ltBinId_)
+                    print("rtBinId_: ", rtBinId_)
+                    print("self.samplesWeight: ", self.samplesWeight)
                 # Forward with weight
                 logitsOutput = marginData*self.samplesWeight
                 
@@ -216,8 +219,9 @@ class NoiseLayer(mx.operator.CustomOp):
         self.assign(out_data[1], req[0], noiseRatio)
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-        
         self.assign(in_grad[0], req[0], self.samplesWeight * out_grad[0])
+        self.assign(in_grad[1], 'write', 0*in_grad[1])
+        self.assign(in_grad[2], 'write', 0*in_grad[2])
 
 @mx.operator.register("noiselayer")
 class NoiseLayerProp(mx.operator.CustomOpProp):

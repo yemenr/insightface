@@ -238,7 +238,7 @@ def get_symbol(args):
   out_list = [mx.symbol.BlockGrad(embedding)]
   
   # noise layer implementation
-  if config.noise_layer:
+  if config.noise_layer and (config.loss_name == 'svx_margin'):
     fc7 = fc7 / config.loss_s
     
     noiseLogits, noiseRatio = mx.symbol.Custom(marginData=fc7, cosData=cosData, label=gt_label, name='noise', op_type='noiselayer')
