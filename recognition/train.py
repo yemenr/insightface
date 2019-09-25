@@ -87,6 +87,7 @@ def get_symbol(args):
     _weight = mx.symbol.L2Normalization(_weight, mode='instance')
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')*s
     fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=config.num_classes, name='fc7')
+    cosData = fc7 / s
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       if config.loss_m1==1.0 and config.loss_m2==0.0:
         s_m = s*config.loss_m3

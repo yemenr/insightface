@@ -34,7 +34,7 @@ class NoiseLayer(mx.operator.CustomOp):
         self.queueSize = 0
         self.noiseRatio = mx.nd.ones(shape=(1, ), dtype='float32', ctx=ctx)
         self.ctx = ctx
-        
+        self.debug_file = open("logs/"+ctx.__str__(), "w")
     
     def get_bin_id(self, cosData):
         binIds = self.bins * (cosData - self.valueLow) / (self.valueHigh - self.valueLow)
@@ -191,10 +191,15 @@ class NoiseLayer(mx.operator.CustomOp):
                     ltBinId_ = min(tBinIds[0], mBinId) # fix
                     #ltBinId_ = tBinIds[0] #not fix              
                 
-                self.lBinId += self.delta(lBinId_, self.lBinId)
-                self.rBinId += self.delta(rBinId_, self.rBinId)
-                self.ltBinId += self.delta(ltBinId_, self.ltBinId)
-                self.rtBinId += self.delta(rtBinId_, self.rtBinId)
+                self.lBinId = lBinId_
+                self.rBinId = rBinId_
+                self.ltBinId = ltBinId_
+                self.rtBinId = rtBinId_
+
+                #self.lBinId += self.delta(lBinId_, self.lBinId)
+                #self.rBinId += self.delta(rBinId_, self.rBinId)
+                #self.ltBinId += self.delta(ltBinId_, self.ltBinId)
+                #self.rtBinId += self.delta(rtBinId_, self.rtBinId)
 
                 # estimate the ratio of noise to clean
                 # method1
@@ -205,13 +210,18 @@ class NoiseLayer(mx.operator.CustomOp):
                                 
                 # Compute weight of each sample 
                 self.samplesWeight = mx.nd.array(self.cos2weight(binIds).reshape((-1,1)), dtype='float32', ctx=self.ctx)
-                if (self.iter % 2000 == 0):
-                    print("self.ctx: ", self.ctx)
-                    print("lBinId_: ", lBinId_)
-                    print("rBinId_: ", rBinId_)
-                    print("ltBinId_: ", ltBinId_)
-                    print("rtBinId_: ", rtBinId_)
-                    print("self.samplesWeight: ", self.samplesWeight)
+                if (self.iter % 1000 == 0):
+                    print("======================", file=self.debug_file)
+                    print("self.ctx: ", self.ctx, file=self.debug_file)
+                    print("lBinId_: ", lBinId_, file=self.debug_file)
+                    print("rBinId_: ", rBinId_, file=self.debug_file)
+                    print("ltBinId_: ", ltBinId_, file=self.debug_file)
+                    print("rtBinId_: ", rtBinId_, file=self.debug_file)
+                    print("self.samplesWeight: ", self.samplesWeight, file=self.debug_file)
+                    print("noiseRatio[0]: ", noiseRatio[0], file=self.debug_file)
+                    print("tBinId: ", tBinId, file=self.debug_file)
+                    print("tBinIds: ", tBinIds, file=self.debug_file)
+                    self.debug_file.flush()
                 # Forward with weight
                 logitsOutput = marginData*self.samplesWeight
                 
