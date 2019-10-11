@@ -109,7 +109,8 @@ def main(args):
     model.bind(data_shapes=[('data', (args.batch_size, 3, image_size[0], image_size[1]))])
     model.set_params(arg_params, aux_params)
   else:
-    assert args.param1==0.0
+    #assert args.param1==0.0
+    args.param1=0.0
   rec_list = []
   for ds in include_datasets:
     path_imgrec = os.path.join(ds, 'train.rec')

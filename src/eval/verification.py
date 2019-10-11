@@ -280,7 +280,7 @@ def test(data_set, mx_model, batch_size, nfolds=10, data_extra = None, label_sha
   print('infer time', time_consumed)
   _, _, accuracy, val, val_std, far = evaluate(embeddings, issame_list, nrof_folds=nfolds)
   acc2, std2 = np.mean(accuracy), np.std(accuracy)
-  return acc1, std1, acc2, std2, _xnorm, embeddings_list
+  return val, far, acc2, std2, _xnorm, embeddings_list
 
 def test_badcase(data_set, mx_model, batch_size, name='', data_extra = None, label_shape = None):
   print('testing verification badcase..')
@@ -576,7 +576,7 @@ if __name__ == '__main__':
       for model in nets:
         acc1, std1, acc2, std2, xnorm, embeddings_list = test(ver_list[i], model, args.batch_size, args.nfolds)
         print('[%s]XNorm: %f' % (ver_name_list[i], xnorm))
-        print('[%s]Accuracy: %1.5f+-%1.5f' % (ver_name_list[i], acc1, std1))
+        print('[%s]recall-FAR: %1.5f+-%1.5f' % (ver_name_list[i], acc1, std1))
         print('[%s]Accuracy-Flip: %1.5f+-%1.5f' % (ver_name_list[i], acc2, std2))
         results.append(acc2)
       print('Max of [%s] is %1.5f' % (ver_name_list[i], np.max(results)))

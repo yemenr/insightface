@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 export MXNET_CPU_WORKER_NTHREADS=24
-export MXNET_CUDNN_AUTOTUNE_DEFAULT=0
+#export MXNET_CUDNN_AUTOTUNE_DEFAULT=0
 export MXNET_ENGINE_TYPE=ThreadedEnginePerDevice
 
 # arcface LResNet100E-IR
