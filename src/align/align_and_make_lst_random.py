@@ -12,6 +12,8 @@ import numpy as np
 import detect_face
 import random
 from time import sleep
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'retinaface'))
+from retinaface import RetinaFace
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
 import face_image
 from skimage import transform as trans
@@ -66,17 +68,18 @@ def main(args):
     print('dataset size', args.name, len(dataset))
     
     print('Creating networks and loading parameters')
-    
+    detector = RetinaFace('../../retinaface/models/resnet50/R50', 0, 0, 'net3')
     with tf.Graph().as_default():
         #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
         #sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         sess = tf.Session()
         with sess.as_default():
-            pnet, rnet, onet = detect_face.create_mtcnn(sess, None)
+            pnet, rnet, onet = detect_face.create_mtcnn(sess, None)    
     
     minsize = 20 # minimum size of face
-    threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
+    threshold_ = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
     factor = 0.709 # scale factor
+    threshold = 0.8  # retinaface threshold
     #image_size = [112,96]
     image_size = [112,112]
     src = np.array([
@@ -112,20 +115,19 @@ def main(args):
                 print('image not found (%s)'%image_path)
                 continue
             filename = os.path.splitext(os.path.split(image_path)[1])[0]
+            _rd = random.randint(0,1)
             #print(image_path)
             try:
-                img = imageio.imread(image_path)
-            except (IOError, ValueError, IndexError) as e:
-                errorMessage = '{}: {}'.format(image_path, e)
-                print(errorMessage)
-            else:
-                if img.ndim<2:
-                    print('Unable to align "%s", img dim error' % image_path)
-                    #text_file.write('%s\n' % (output_filename))
-                    continue
-                if img.ndim == 2:
-                    img = to_rgb(img)
-                img = img[:,:,0:3]
+                if _rd == 1:
+                    img = imageio.imread(image_path)
+                else:
+                    img = cv2.imread(image_path)
+                    if img is None:
+                        print("Path is error! ", image_path)
+                        continue
+            except :
+                print("Something is error! ", image_path)
+            else:                
                 _paths = fimage.image_path.split('/')
                 a,b,c = _paths[-3], _paths[-2], _paths[-1]
                 target_dir = os.path.join(args.output_dir, a, b)
@@ -142,10 +144,17 @@ def main(args):
                 if not os.path.exists(target_dir):
                     os.makedirs(target_dir)
                 #target_file = os.path.join(target_dir, c)
-                #warped = None                
+                #warped = None                       
                 
-                _minsize = img.shape[0]//4
-                bounding_boxes, points = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
+                if _rd==1:
+                    bounding_boxes, points = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold_, factor)
+                else:
+                    fixedSize = 640
+                    scale = float(fixedSize) / float(max(img.shape[0], img.shape[1]))
+                    if scale > 1.0:
+                        scale = 1.0
+                    bounding_boxes, points = detector.detect(img, threshold, scales=[scale])
+                
                 nrof_faces = bounding_boxes.shape[0]
                 det = bounding_boxes[:,0:4]
                 scores = bounding_boxes[:,4]
@@ -179,8 +188,12 @@ def main(args):
                                     xw = min(xw, img.shape[1])
                                     roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                                     
-                                    faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                                    dst = points[:, i].reshape( (2,5) ).T
+                                    if _rd==1:
+                                        faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                        dst = points[:, i].reshape( (2,5) ).T
+                                    else:
+                                        faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                        dst = points[i, :]
                                     tform = trans.SimilarityTransform()
                                     tform.estimate(dst, src)
                                     M = tform.params[0:2,:]
@@ -222,8 +235,12 @@ def main(args):
                             xw = min(xw, img.shape[1])
                             roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                             
-                            faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                            dst = points[:, index].reshape( (2,5) ).T
+                            if _rd==1:
+                                faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                dst = points[:, index].reshape( (2,5) ).T
+                            else:
+                                faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                dst = points[index, :]
                             tform = trans.SimilarityTransform()
                             tform.estimate(dst, src)
                             M = tform.params[0:2,:]
@@ -259,8 +276,12 @@ def main(args):
                         xw = min(xw, img.shape[1])
                         roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                         
-                        faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                        dst = points[:, 0].reshape( (2,5) ).T
+                        if _rd == 1:
+                            faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                            dst = points[:, 0].reshape( (2,5) ).T
+                        else:
+                            faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                            dst = points[0, :]
                         tform = trans.SimilarityTransform()
                         tform.estimate(dst, src)
                         M = tform.params[0:2,:]
@@ -276,8 +297,9 @@ def main(args):
                     
                     for i, warped in enumerate(aligned_imgs):
                         target_file = os.path.join(target_dir, c+str(i)+'.png')
-                        bgr = warped[...,::-1]
-                        cv2.imwrite(target_file, bgr)
+                        if _rd == 1:
+                            warped = warped[...,::-1]
+                        cv2.imwrite(target_file, warped)
                         oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
                         text_file.write(oline)
                 elif args.detect_force:
@@ -287,10 +309,12 @@ def main(args):
                     roi[2] = img.shape[1]-roi[0]
                     roi[3] = img.shape[0]-roi[1]
                     warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                    
                     warped = cv2.resize(warped, (image_size[1], image_size[0]))
                     target_file = os.path.join(target_dir, c+'.png')
-                    bgr = warped[...,::-1]
-                    cv2.imwrite(target_file, bgr)
+                    if _rd == 1:
+                        warped = warped[...,::-1]
+                    cv2.imwrite(target_file, warped)
                     oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
                     text_file.write(oline)
                     nrof[3]+=1

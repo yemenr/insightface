@@ -132,7 +132,7 @@ densenet_spec = {121: (64, 32, [6, 12, 24, 16]),
 
 
 # Constructor
-def get_symbol():
+def get_symbol(fixed_param_names):
     num_layers = config.num_layers
     num_init_features, growth_rate, block_config = densenet_spec[num_layers]
     net = DenseNet(num_init_features, growth_rate, block_config, dropout = config.densenet_dropout)

@@ -40,7 +40,7 @@ def ConvOnly(data, num_filter=1, kernel=(1, 1), stride=(1, 1), pad=(0, 0), num_g
     conv = mx.sym.Convolution(data=data, num_filter=num_filter, kernel=kernel, num_group=num_group, stride=stride, pad=pad, no_bias=True, name='%s%s_conv2d' %(name, suffix))
     return conv
 
-def get_symbol():
+def get_symbol(fixed_param_names):
     num_classes = config.emb_size
     bn_mom = config.bn_mom
     workspace = config.workspace

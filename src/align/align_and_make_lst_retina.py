@@ -171,7 +171,7 @@ def main(args):
                                     xw = min(xw, img.shape[1])
                                     roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                                     
-                                    faceImg = img[roi[0]:roi[2],roi[1]:roi[3],:]
+                                    faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
                                     dst = points[i, :]
                                     tform = trans.SimilarityTransform()
                                     tform.estimate(dst, src)
@@ -214,7 +214,7 @@ def main(args):
                             xw = min(xw, img.shape[1])
                             roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                             
-                            faceImg = img[roi[0]:roi[2],roi[1]:roi[3],:]
+                            faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
                             dst = points[index, :]
                             tform = trans.SimilarityTransform()
                             tform.estimate(dst, src)
@@ -251,7 +251,7 @@ def main(args):
                         xw = min(xw, img.shape[1])
                         roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                         
-                        faceImg = img[roi[0]:roi[2],roi[1]:roi[3],:]
+                        faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
                         dst = points[0, :]
                         tform = trans.SimilarityTransform()
                         tform.estimate(dst, src)
@@ -277,7 +277,7 @@ def main(args):
                     roi[1] = int(img.shape[0]*0.06)
                     roi[2] = img.shape[1]-roi[0]
                     roi[3] = img.shape[0]-roi[1]
-                    warped = img[roi[0]:roi[2],roi[1]:roi[3],:]
+                    warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
                     warped = cv2.resize(warped, (image_size[1], image_size[0]))
                     target_file = os.path.join(target_dir, c+'.png')
                     cv2.imwrite(target_file, warped)

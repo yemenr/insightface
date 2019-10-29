@@ -66,7 +66,7 @@ def parse_args():
 
 
 def get_symbol(args):
-  embedding = eval(config.net_name).get_symbol()
+  embedding = eval(config.net_name).get_symbol(fixed_param_names=fixed_param_names)
   if args.memonger:    
     embedding = memonger.search_plan(embedding)
   all_label = mx.symbol.Variable('softmax_label')
@@ -168,10 +168,11 @@ def get_symbol(args):
         if config.loss_m2>0.0:
           t = t+config.loss_m2
         # 0<=theta+m<=pi
-        piSymbol = mx.sym.Variable(name='PI', shape=(1, ), lr_mult=0, init=mx.init.Constant(3.1415926))
-        thMask = mx.sym.broadcast_greater_equal(t, piSymbol)
-        fixed_param_names.append("PI")
-        t = mx.sym.where(thMask, t0, t) # boundary protect
+        #piSymbol = mx.sym.Variable(name='PI', shape=(1, ), lr_mult=0, init=mx.init.Constant(3.1415926))
+        #piSymbol = mx.sym.ones((1))*3.1415926
+        #thMask = mx.sym.broadcast_greater_equal(t, piSymbol)
+        #fixed_param_names.append("PI")
+        #t = mx.sym.where(thMask, t0, t) # boundary protect
         body = mx.sym.cos(t)
         #sin_m = math.sin(m)
         #mm = sin_m * m
@@ -194,10 +195,11 @@ def get_symbol(args):
         if config.loss_nm2>0.0:
           nt = nt-config.loss_nm2
         # 0<=nm1*theta-nm2<=pi
-        zeroSymbol = mx.sym.Variable(name='ZERO', shape=(1, ), lr_mult=0, init=mx.init.Constant(0))
-        nthMask = mx.sym.broadcast_lesser(nt, zeroSymbol)
-        fixed_param_names.append("ZERO")
-        nt = mx.sym.where(nthMask, nt0, nt)
+        #zeroSymbol = mx.sym.Variable(name='ZERO', shape=(1, ), lr_mult=0, init=mx.init.Constant(0))
+        #zeroSymbol = mx.sym.zeros((1))
+        #nthMask = mx.sym.broadcast_lesser(nt, zeroSymbol)
+        #fixed_param_names.append("ZERO")
+        #nt = mx.sym.where(nthMask, nt0, nt)
         cosTheta = mx.sym.cos(nt)
         if config.loss_nm3>0.0:
           cosTheta = cosTheta + config.loss_nm3

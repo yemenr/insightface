@@ -485,7 +485,7 @@ def residual_unit(data, num_filter, stride, dim_match, name, bottle_neck, **kwar
   else:
     return residual_unit_v3(data, num_filter, stride, dim_match, name, bottle_neck, **kwargs)
 
-def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
+def resnet(units, num_stages, filter_list, num_classes, bottle_neck, fixed_param_names):
     input_shape = (default.per_batch_size, config.image_shape[-1], config.image_shape[0], config.image_shape[1])
     bn_mom = config.bn_mom
     workspace = config.workspace
@@ -588,7 +588,7 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck):
       
     return fc1
 
-def get_symbol():
+def get_symbol(fixed_param_names):
     """
     Adapted from https://github.com/tornadomeet/ResNet/blob/master/train_resnet.py
     Original author Wei Wu
@@ -645,7 +645,8 @@ def get_symbol():
                   num_stages  = num_stages,
                   filter_list = filter_list,
                   num_classes = num_classes,
-                  bottle_neck = bottle_neck)
+                  bottle_neck = bottle_neck
+                  fixed_param_names = fixed_param_names)
 
     #if config.memonger:
     #  dshape = (config.per_batch_size, config.image_shape[2], config.image_shape[0], config.image_shape[1])

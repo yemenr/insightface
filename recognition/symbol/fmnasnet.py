@@ -154,7 +154,7 @@ class MNasNet(nn.HybridBlock):
     def num_output_channel(self):
       return self.last_channels
 
-def get_symbol():
+def get_symbol(fixed_param_names):
   net = MNasNet(config.net_multiplier)
   data = mx.sym.Variable(name='data')
   data = data-127.5

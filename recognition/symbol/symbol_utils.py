@@ -3,6 +3,7 @@ import os
 import mxnet as mx
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config, default
+import numpy as np
 
 def Conv(**kwargs):
     #name = kwargs.get('name')
@@ -231,6 +232,46 @@ def residual_unit_v1l(data, num_filter, stride, dim_match, name, bottle_neck):
         if memonger:
             shortcut._set_attr(mirror_stage='True')
         return Act(data=bn2 + shortcut, act_type=act_type, name=name + '_relu3')
+
+def antialiased_downsample(inputs, name, in_ch, fixed_param_names, pad_type='reflect', filt_size=3, stride=(2, 2), pad_off=0):
+    pad_size = [int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2)), int(1.*(filt_size-1)/2), int(np.ceil(1.*(filt_size-1)/2))]
+    pad_size = [x + pad_off for x in pad_size]
+
+    def get_filter(filt_size, in_ch):
+        if(filt_size==1):
+            filter = np.array([1.,])
+        elif(filt_size==2):
+            filter = np.array([1., 1.])
+        elif(filt_size==3):
+            filter = np.array([1., 2., 1.])
+        elif(filt_size==4):    
+            filter = np.array([1., 3., 3., 1.])
+        elif(filt_size==5):    
+            filter = np.array([1., 4., 6., 4., 1.])
+        elif(filt_size==6):    
+            filter = np.array([1., 5., 10., 10., 5., 1.])
+        elif(filt_size==7):    
+            filter = np.array([1., 6., 15., 20., 15., 6., 1.])
+        else:
+            raise NotImplementedError('invalid filter size %d' % filt_size)
+        filter = filter[None,:]*filter[:,None]
+        filter = filter/filter.sum()
+        filter = filter[None,None,:,:]
+        filter = np.tile(filter,(in_ch,1,1,1))
+        
+        filter = filter.astype(np.float32)
+        return filter
+    
+    W_val = get_filter(filt_size, in_ch)
+    # padding
+    inputs = mx.sym.pad(inputs, mode=pad_type, pad_width=(0,)*4+tuple(pad_size), name=name+"_padding")
+    # downsample
+    blurPoolW = mx.sym.Variable(name+"_BlurPool_weight", shape=W_val.shape, init=mx.init.Constant(W_val))
+    mx.sym.BlockGrad(blurPoolW)
+    fixed_param_names.append(name+"_BlurPool_weight")
+    out = mx.sym.Convolution(data=inputs, weight=blurPoolW, bias=None, no_bias=True, kernel=(filt_size,filt_size), num_filter=in_ch, num_group=in_ch, stride=stride, name=name+"_BlurPool")
+    
+    return out
 
 def get_head(data, version_input, num_filter):
     bn_mom = config.bn_mom
