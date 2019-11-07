@@ -351,8 +351,20 @@ def train_net(args):
       _metric = LossValueMetric()
       eval_metrics = [mx.metric.create(_metric)]
     else:
-      from image_iter import FaceImageIter
-      train_dataiter = FaceImageIter(
+      #from image_iter import FaceImageIter
+      #train_dataiter = FaceImageIter(
+      #    batch_size           = args.batch_size,
+      #    data_shape           = data_shape,
+      #    path_imgrec          = path_imgrec,
+      #    shuffle              = True,
+      #    rand_mirror          = config.data_rand_mirror,
+      #    mean                 = mean,
+      #    cutoff               = config.data_cutoff,
+      #    color_jittering      = config.data_color,
+      #    images_filter        = config.data_images_filter,
+      #)
+      from image_iter_gluon import FaceImageDataset
+      train_dataset = FaceImageDataset(
           batch_size           = args.batch_size,
           data_shape           = data_shape,
           path_imgrec          = path_imgrec,
@@ -363,6 +375,9 @@ def train_net(args):
           color_jittering      = config.data_color,
           images_filter        = config.data_images_filter,
       )
+
+      train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover", num_workers=4)
+      train_dataiter = mx.contrib.io.DataLoaderIter(train_data)
       metric1 = AccMetric()
       eval_metrics = [mx.metric.create(metric1)]
       if config.ce_loss:
@@ -474,7 +489,7 @@ def train_net(args):
 
     epoch_cb = None
     train_dataiter = mx.io.PrefetchingIter(train_dataiter)  #triplet loss unavailable
-
+    ######
     model.fit(train_dataiter,
         begin_epoch        = begin_epoch,
         num_epoch          = 999999,

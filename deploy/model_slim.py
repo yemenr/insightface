@@ -20,6 +20,8 @@ prefix = _vec[0]
 epoch = int(_vec[1])
 print('loading',prefix, epoch)
 sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
+#digraph = mx.viz.plot_network(sym, node_attrs={"shape":"oval", "fixedsize":"false"})
+#digraph.view()
 
 thres = 1e-15
 # modify params
