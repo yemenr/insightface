@@ -340,7 +340,7 @@ def residual_unit_v3(data, num_filter, stride, dim_match, name, bottle_neck, fix
     memonger = kwargs.get('memonger', False)
     act_type = kwargs.get('version_act', 'prelu')
     #print('in unit3')
-    if bottle_neck: # remained BCBACB
+    if bottle_neck:
         bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1', cudnn_off=memonger)
         conv1 = Conv(data=bn1, num_filter=int(num_filter*0.25), kernel=(1,1), stride=(1,1), pad=(0,0),
                                    no_bias=True, workspace=workspace, name=name + '_conv1')
@@ -376,37 +376,35 @@ def residual_unit_v3(data, num_filter, stride, dim_match, name, bottle_neck, fix
             shortcut._set_attr(mirror_stage='True')
         return bn4 + shortcut
     else:
-        conv1 = Conv(data=data, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
+        bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1', cudnn_off=memonger)
+        conv1 = Conv(data=bn1, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
-        act1 = Act(data=conv1, act_type=act_type, name=name + '_relu1')
-        bn1 = mx.sym.BatchNorm(data=act1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1', cudnn_off=memonger)
-        conv2 = Conv(data=bn1, num_filter=num_filter, kernel=(3,3), stride=stride, pad=(1,1),
-                                      no_bias=True, workspace=workspace, name=name + '_conv2')        
-        act2 = Act(data=conv2, act_type=act_type, name=name + '_relu2')
-        bn2 = mx.sym.BatchNorm(data=act2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2', cudnn_off=memonger)
+        bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2', cudnn_off=memonger)
+        act1 = Act(data=bn2, act_type=act_type, name=name + '_relu1')
+        conv2 = Conv(data=act1, num_filter=num_filter, kernel=(3,3), stride=stride, pad=(1,1),
+                                      no_bias=True, workspace=workspace, name=name + '_conv2')
+        bn3 = mx.sym.BatchNorm(data=conv2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
         if use_se:
           #se begin
-          body = mx.sym.Pooling(data=bn2, global_pool=True, kernel=(7, 7), pool_type='avg', name=name+'_se_pool1')
+          body = mx.sym.Pooling(data=bn3, global_pool=True, kernel=(7, 7), pool_type='avg', name=name+'_se_pool1')
           body = Conv(data=body, num_filter=num_filter//16, kernel=(1,1), stride=(1,1), pad=(0,0),
                                     name=name+"_se_conv1", workspace=workspace)
           body = Act(data=body, act_type=act_type, name=name+'_se_relu1')
           body = Conv(data=body, num_filter=num_filter, kernel=(1,1), stride=(1,1), pad=(0,0),
                                     name=name+"_se_conv2", workspace=workspace)
           body = mx.symbol.Activation(data=body, act_type='sigmoid', name=name+"_se_sigmoid")
-          bn2 = mx.symbol.broadcast_mul(bn2, body)
+          bn3 = mx.symbol.broadcast_mul(bn3, body)
           #se end
 
         if dim_match:
             shortcut = data
         else:
-            shortcut = Conv(data=data, num_filter=num_filter, kernel=(1,1), stride=stride, no_bias=True,
+            conv1sc = Conv(data=data, num_filter=num_filter, kernel=(1,1), stride=stride, no_bias=True,
                                             workspace=workspace, name=name+'_conv1sc')
-            #shortcut = mx.sym.BatchNorm(data=conv1sc, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_sc', cudnn_off=memonger)
+            shortcut = mx.sym.BatchNorm(data=conv1sc, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_sc', cudnn_off=memonger)
         if memonger:
             shortcut._set_attr(mirror_stage='True')
-        act3 = Act(data=(bn2+shortcut), act_type=act_type, name=name + '_relu3')
-        bn3 = mx.sym.BatchNorm(data=act3, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
-        return bn3
+        return bn3 + shortcut
 
 def residual_unit_v3_x(data, num_filter, stride, dim_match, name, bottle_neck, fixed_param_names, **kwargs):
     
@@ -478,45 +476,35 @@ def residual_unit_v3_x(data, num_filter, stride, dim_match, name, bottle_neck, f
     memonger = kwargs.get('memonger', False)
     act_type = kwargs.get('version_act', 'prelu')
 
-    conv1 = Conv(data=data, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
+    bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1', cudnn_off=memonger)
+    conv1 = Conv(data=bn1, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
                                   no_bias=True, workspace=workspace, name=name + '_conv1')
-    act1 = Act(data=conv1, act_type=act_type, name=name + '_relu1')    
-    bn1 = mx.sym.BatchNorm(data=act1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1', cudnn_off=memonger)
+    bn2 = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2', cudnn_off=memonger)
+    act1 = Act(data=bn2, act_type=act_type, name=name + '_relu1')
     if stride==(2,2):
-        conv2 = Conv(data=bn1, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
+        conv2 = Conv(data=act1, num_filter=num_filter, kernel=(3,3), stride=(1,1), pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv2')
-        act2 = Act(data=conv2, act_type=act_type, name=name + '_relu2')
+        bn3 = mx.sym.BatchNorm(data=conv2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
+        bn3 = Act(data=bn3, act_type=act_type, name=name + '_relu2')
+        
         # add blurPooling
-        act2 = symbol_utils.antialiased_downsample(inputs=act2, name=name, in_ch=num_filter, fixed_param_names=fixed_param_names)    
-        bn2 = mx.sym.BatchNorm(data=act2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2', cudnn_off=memonger)
-
-        if dim_match:
-            shortcut = data
-        else:
-            shortcut = Conv(data=data, num_filter=num_filter, kernel=(1,1), stride=stride, no_bias=True,
-                                            workspace=workspace, name=name+'_conv1sc')
-            #shortcut = mx.sym.BatchNorm(data=conv1sc, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_sc', cudnn_off=memonger)
-        if memonger:
-            shortcut._set_attr(mirror_stage='True')
-        act3 = Act(data=(bn2+shortcut), act_type=act_type, name=name + '_relu3')
-        bn3 = mx.sym.BatchNorm(data=act3, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
-    else:        
-        conv2 = Conv(data=bn1, num_filter=num_filter, kernel=(3,3), stride=stride, pad=(1,1),
+        bn3 = symbol_utils.antialiased_downsample(inputs=bn3, name=name, in_ch=num_filter, fixed_param_names=fixed_param_names)    
+    else:                
+        conv2 = Conv(data=act1, num_filter=num_filter, kernel=(3,3), stride=stride, pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv2')
-        act2 = Act(data=conv2, act_type=act_type, name=name + '_relu2')
-        bn2 = mx.sym.BatchNorm(data=act2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2', cudnn_off=memonger)
-
-        if dim_match:
-            shortcut = data
-        else:
-            shortcut = Conv(data=data, num_filter=num_filter, kernel=(1,1), stride=stride, no_bias=True,
-                                            workspace=workspace, name=name+'_conv1sc')
-            #shortcut = mx.sym.BatchNorm(data=conv1sc, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_sc', cudnn_off=memonger)
-        if memonger:
-            shortcut._set_attr(mirror_stage='True')
-        act3 = Act(data=(bn2+shortcut), act_type=act_type, name=name + '_relu3')
-        bn3 = mx.sym.BatchNorm(data=act3, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
-    return bn3
+        bn3 = mx.sym.BatchNorm(data=conv2, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn3', cudnn_off=memonger)
+    
+    if dim_match:
+        shortcut = data
+    else:    
+        conv1sc = Conv(data=data, num_filter=num_filter, kernel=(1,1), stride=stride, no_bias=True,
+                       workspace=workspace, name=name+'_conv1sc')
+        shortcut = mx.sym.BatchNorm(data=conv1sc, fix_gamma=False, momentum=bn_mom, eps=2e-5, name=name + '_sc', cudnn_off=memonger)
+    if memonger:
+        shortcut._set_attr(mirror_stage='True')
+    #act3 = Act(data=(bn3+shortcut), act_type=act_type, name=name + '_relu3')
+    #return act3
+    return bn3 + shortcut
 
 def residual_unit(data, num_filter, stride, dim_match, name, bottle_neck, fixed_param_names, **kwargs):
   uv = kwargs.get('version_unit', 3)
@@ -596,9 +584,8 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck, fixed_param
       body = data
       body = Conv(data=body, num_filter=filter_list[0], kernel=(3,3), stride=(1,1), pad=(1, 1),
                                 no_bias=True, name="conv0", workspace=workspace)
-      body = Act(data=body, act_type=act_type, name='relu0')# modified: move act before bn because of prelu                          
       body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0', cudnn_off=default.memonger)
-      #body = Act(data=body, act_type=act_type, name='relu0')
+      body = Act(data=body, act_type=act_type, name='relu0')
     
     if default.memonger:
       body._set_attr(mirror_stage='True')
@@ -623,10 +610,9 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck, fixed_param
           body._set_attr(mirror_stage='True')
     if bottle_neck:
       body = Conv(data=body, num_filter=512, kernel=(1,1), stride=(1,1), pad=(0,0),
-                                no_bias=True, name="convd", workspace=workspace)
-      body = Act(data=body, act_type=act_type, name='relud')#
+                                no_bias=True, name="convd", workspace=workspace)      
       body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bnd', cudnn_off=default.memonger)
-      #body = Act(data=body, act_type=act_type, name='relud')# modified: move act before bn because of prelu                          
+      body = Act(data=body, act_type=act_type, name='relud')# modified: move act before bn because of prelu                          
     if default.memonger:
       body._set_attr(mirror_stage='True')
 

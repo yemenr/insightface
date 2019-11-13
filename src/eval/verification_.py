@@ -44,6 +44,7 @@ import mxnet as mx
 from mxnet import ndarray as nd
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
 import face_image
+from sklearn import metrics
 
 
 class LFold:
@@ -86,6 +87,8 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
             bestFar = fprs[threshold_idx]
     best_threshold_index = np.argmax(acc_train)
     print('threshold: ', thresholds[best_threshold_index], ", tpr: ", tprs[best_threshold_index], ", fpr: ", fprs[best_threshold_index])
+    auc = metrics.auc(fprs, tprs)
+    print("Area Under Curve (AUC): %.4f" % auc)
     return bestTar, bestFar, acc_train[best_threshold_index]
 
 def calculate_accuracy(threshold, dist, actual_issame):
