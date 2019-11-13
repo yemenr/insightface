@@ -277,7 +277,7 @@ def train_net(args):
     else:
       print('gpu num:', len(ctx))
     curTime = time.strftime("%Y%m%d%H%M%S", time.localtime())
-    prefix = os.path.join(args.models_root, curTime, '%s-%s-%s'%(args.network, args.loss, args.dataset), 'model')
+    prefix = os.path.join(args.models_root, '%s-%s-%s-%s'%(curTime, args.network, args.loss, args.dataset), 'model')
     prefix_dir = os.path.dirname(prefix)
     print('prefix', prefix)
     if not os.path.exists(prefix_dir):
@@ -376,7 +376,7 @@ def train_net(args):
           images_filter        = config.data_images_filter,
       )
 
-      train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover", num_workers=4)
+      train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover", num_workers=8)
       train_dataiter = mx.contrib.io.DataLoaderIter(train_data)
       metric1 = AccMetric()
       eval_metrics = [mx.metric.create(metric1)]
