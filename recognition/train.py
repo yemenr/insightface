@@ -422,6 +422,7 @@ def train_net(args):
     #  highest_acc.append(0.0)
     global_step = [0]
     save_step = [0]
+    highestStep = [0]
     lr_steps = [int(x) for x in args.lr_steps.split(',')]
     print('lr_steps', lr_steps)
     def _batch_callback(param):
@@ -459,6 +460,7 @@ def train_net(args):
                 is_highest = True
                 highest_acc[0] = score
             highest_acc[-1] = acc_list[-1]
+            highestStep[0] = save_step[0]
             #if lfw_score>=0.99:
             #  do_save = True
         if is_highest:
@@ -483,7 +485,7 @@ def train_net(args):
             mx.model.save_checkpoint(prefix, msave, _sym, _arg, aux)
           else:
             mx.model.save_checkpoint(prefix, msave, model.symbol, arg, aux)
-        print('[%d]Accuracy-Highest: %1.5f'%(mbatch, highest_acc[-1]))
+        print('[%d]Accuracy-Highest: %1.5f, mbatch: %d'%(mbatch, highest_acc[-1], highestStep[0]))
       if config.max_steps>0 and mbatch>config.max_steps:
         sys.exit(0)
 
