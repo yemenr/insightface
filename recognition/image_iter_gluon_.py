@@ -18,6 +18,7 @@ from mxnet import ndarray as nd
 from mxnet import io
 from mxnet import recordio
 from mxnet.gluon.data import Dataset
+import pdb
 
 logger = logging.getLogger()
 
@@ -29,7 +30,7 @@ class FaceImageDataset(Dataset):
                  shuffle=False, aug_list=None, mean = None,
                  rand_mirror = False, cutoff = 0, color_jittering = 0,
                  images_filter = 0,
-                 data_name='data', label_name='softmax_label', **kwargs):
+                 data_name='data', label_name='softmax_label', idsQueue = None, **kwargs):
         assert path_imgrec
         logging.info('loading recordio %s...', path_imgrec)
         path_imgidx = path_imgrec[0:-4]+".idx"
@@ -70,6 +71,7 @@ class FaceImageDataset(Dataset):
         self.color_jittering = color_jittering
         self.CJA = mx.image.ColorJitterAug(0.125, 0.125, 0.125)
         self.provide_label = [(label_name, (batch_size,))]
+        self.idsQueue = idsQueue
 
     def __len__(self):
       return len(self.imgidx)
@@ -79,11 +81,14 @@ class FaceImageDataset(Dataset):
         imgIdx = self.imgidx[idx]
         s = self.imgrec.read_idx(imgIdx)
         header, imgBytes = recordio.unpack(s)
-        label = header.label      
+        label = header.label
         if not isinstance(label, numbers.Number):
             label = label[0]
         #_label = mx.nd.array([label])
         _data = self.imdecode(imgBytes)
+        if self.idsQueue != None:
+            self.idsQueue.put(header.id, block=True)
+        
         '''
         if label > 179720:
             xx = _data[:,:,::-1].asnumpy()

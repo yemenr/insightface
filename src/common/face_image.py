@@ -227,6 +227,7 @@ def get_dataset_clfw(input_dir):
 def get_dataset_common(input_dir, data_type, min_images = 1):
   ret = []
   label = 0
+  labelToNameFile = open("label_to_name.txt", "w")
   if data_type == 'seq':
     label = -1
   person_names = []
@@ -246,12 +247,16 @@ def get_dataset_common(input_dir, data_type, min_images = 1):
       fimage.bbox = None
       fimage.landmark = None
       _ret.append(fimage)
+          
     if len(_ret)>=min_images:
       ret += _ret
+      labelToNameFile.write("%d, %s\n" % (label, person_name))
       if data_type == 'id':
         label+=1
       elif data_type == 'seq':
         label -= 1
+        
+  labelToNameFile.close()
   return ret
 
 def get_dataset(name, input_dir, data_type):

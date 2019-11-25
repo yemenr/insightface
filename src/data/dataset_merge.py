@@ -247,7 +247,16 @@ def main(args):
   idx = 1
   identities = []
   nlabel = -1
-  for id_item in all_id_list:
+  
+  newIdFileList = []
+  newLabelFileList = []
+  for ds_id in range(len(rec_list)):
+      newIdFile = open(os.path.join(args.output, "newId_to_oldId_%d.txt" % ds_id), "w")
+      newIdFileList.append(newIdFile)
+      newlabelFile = open(os.path.join(args.output, "newLabel_to_oldLabel_%d.txt" % ds_id), "w")
+      newLabelFileList.append(newlabelFile)
+      
+  for id_item in all_id_list:    
     if id_item[1]<0:
       continue
     nlabel+=1
@@ -258,13 +267,26 @@ def main(args):
     header, _ = mx.recordio.unpack(s)
     a, b = int(header.label[0]), int(header.label[1])
     identities.append( (idx, idx+b-a) )
+    newIdFile = newIdFileList[id_item[0]]       
+    
     for _idx in range(a,b):
       s = imgrec.read_idx(_idx)
       _header, _content = mx.recordio.unpack(s)
       nheader = mx.recordio.IRHeader(0, nlabel, idx, 0)
+      newIdFile.write("%d, %d\n" % (idx, _header.id))
       s = mx.recordio.pack(nheader, _content)
       writer.write_idx(idx, s)
       idx+=1
+    newlabelFile = newLabelFileList[id_item[0]]
+    tmpLabel = _header.label
+    if type(tmpLabel)==np.ndarray or type(tmpLabel)==tuple or type(tmpLabel)==list:
+      tmpLabel = tmpLabel[0]
+    newlabelFile.write("%d, %d\n" % (nlabel, tmpLabel))
+      
+  for ds_id in range(len(rec_list)):
+    newIdFileList[ds_id].close()
+    newLabelFileList[ds_id].close()
+    
   id_idx = idx
   for id_label in identities:
     _header = mx.recordio.IRHeader(1, id_label, idx, 0)

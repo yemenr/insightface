@@ -43,6 +43,7 @@ except ImportError:
 
 
 def read_list(path_in):
+    idToPathFile = open("id_to_path.txt", "w")
     with open(path_in) as fin:
         identities = []
         last = [-9999999, -1]
@@ -66,6 +67,9 @@ def read_list(path_in):
               continue
             item.id = _id   #item index
             item.label = [label, item.aligned]
+            # record id<==>path
+            idToPathFile.write("%d, %s\n" % (item.id, item.image_path))
+            
             yield item
             if label!=last[0]:  #save (label,id ) relation info. endding of each class
               if last[1]>=0:
@@ -86,6 +90,8 @@ def read_list(path_in):
           _id+=1
           item.label = [float(identity[0]), float(identity[1])]
           yield item    # each endding item of each class
+          
+        idToPathFile.close()
 
 
 

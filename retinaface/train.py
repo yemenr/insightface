@@ -118,7 +118,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch,
     logger.info('output shape %s' % pprint.pformat(out_shape_dict))
 
 
-    for k,v in arg_shape_dict.iteritems():
+    for k,v in arg_shape_dict.items():
       if k.find('upsampling')>=0:
         print('initializing upsampling_weight', k)
         arg_params[k] = mx.nd.zeros(shape=v)

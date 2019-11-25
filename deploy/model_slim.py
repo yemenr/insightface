@@ -8,6 +8,8 @@ import argparse
 import numpy as np
 import mxnet as mx
 import pdb
+sys.path.append(os.path.join(os.path.dirname(__file__), '../recognition/losses'))
+import noise_layer
 
 parser = argparse.ArgumentParser(description='face model slim')
 # general

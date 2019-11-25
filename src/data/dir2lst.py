@@ -13,6 +13,7 @@ except IOError:
     print("output file does not exist")
 
 label = 0
+labelToNameFile = open("label_to_name.txt", "w")
 for person_name in os.listdir(input_dir):
     personDir = os.path.join(input_dir, person_name)
     incrLabel = False
@@ -35,6 +36,8 @@ for person_name in os.listdir(input_dir):
             outFile.write(oline)        
             incrLabel = True
     if incrLabel:
+        labelToNameFile.write("%d, %s\n" % (label, person_name))
         label += 1
 
 outFile.close()
+labelToNameFile.close()

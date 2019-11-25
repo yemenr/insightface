@@ -129,7 +129,7 @@ config.TRAIN.RPN_FORCE_POSITIVE = False
 # rpn bounding box regression params
 config.TRAIN.BBOX_STDS = (1.0, 1.0, 1.0, 1.0)
 config.TRAIN.LANDMARK_STD = 1.0
-
+config.TRAIN.OHEM_MODE = 1
 
 config.TEST = edict()
 
@@ -193,8 +193,8 @@ network.mnet.LANDMARK_LR_MULT = 2.5
 
 network.resnet = edict()
 #network.resnet.pretrained = 'model/ResNet50_v1d'
-#network.resnet.pretrained = 'model/resnet-50'
-network.resnet.pretrained = 'model/resnet-152'
+network.resnet.pretrained = 'model/resnet-50'
+#network.resnet.pretrained = 'model/resnet-152'
 #network.resnet.pretrained = 'model/senet154'
 #network.resnet.pretrained = 'model/densenet161'
 network.resnet.pretrained_epoch = 0
@@ -217,7 +217,6 @@ network.resnet.RPN_BATCH_SIZE = 256
 network.resnet.RPN_ANCHOR_CFG = RAC_RETINA
 
 network.resnet.USE_DCN = 0
-network.resnet.pretrained = 'model/resnet-50'
 network.resnet.RPN_ANCHOR_CFG = RAC_SSH
 
 
@@ -267,6 +266,7 @@ default.prefix = 'model/retinaface'
 default.end_epoch = 10000
 default.lr_step = '55,68,80'
 default.lr = 0.01
+default.wd = 0.0005
 
 def generate_config(_network, _dataset):
     for k, v in network[_network].items():
