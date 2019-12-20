@@ -110,7 +110,7 @@ def get_symbol(args):
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
-  '''
+    '''
   elif config.loss_name == 'svx_softmax':
     _weight = mx.symbol.Variable("fc7_weight", shape=(config.num_classes, config.emb_size), 
         lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult, init=mx.init.Normal(0.01))
@@ -148,7 +148,7 @@ def get_symbol(args):
         gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
         intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
         fc7 = (interCosTheta + intraCosTheta) * s
-  '''
+    '''
   elif config.loss_name == 'svx_softmax':
     _weight = mx.symbol.Variable("fc7_weight", shape=(config.num_classes, config.emb_size), 
         lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult, init=mx.init.Normal(0.01))
@@ -156,6 +156,7 @@ def get_symbol(args):
     _weight = mx.symbol.L2Normalization(_weight, mode='instance')
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n')*s
     fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=config.num_classes, name='fc7')
+    cosData = fc7/s
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       if config.loss_m1==1.0 and config.loss_m2==0.0:
         s_m = s*config.loss_m3
@@ -177,7 +178,7 @@ def get_symbol(args):
         # inter class  
         ## mask selection
         cosTheta = fc7 / s
-        hardMask = mx.sym.broadcast_greater(cosTheta, body)
+        hardMask = mx.sym.broadcast_greater(cosTheta, body) # gt class goes wrong
         easyMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
         ## calculation of interCosTheta
         interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0) * hardMask + cosTheta * easyMask
@@ -243,7 +244,7 @@ def get_symbol(args):
         if config.loss_nm3>0.0:
           cosTheta = cosTheta + config.loss_nm3
         
-      hardMask = mx.sym.broadcast_greater_equal(cosTheta, body)*nonGroundTruthMask
+      hardMask = mx.sym.broadcast_greater_equal(cosData, body)*nonGroundTruthMask # use cosData instead of cosTheta for difficulty lowering 
       ## calculation of interCosTheta
       interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0)*hardMask + cosTheta*nonGroundTruthMask
       
