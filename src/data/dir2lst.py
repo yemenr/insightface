@@ -2,6 +2,7 @@ import sys
 import os
 from scipy import misc
 import imageio
+from tqdm import tqdm
 
 input_dir = sys.argv[1]
 output_dir = sys.argv[2]
@@ -14,10 +15,10 @@ except IOError:
 
 label = 0
 labelToNameFile = open("label_to_name.txt", "w")
-for person_name in os.listdir(input_dir):
+for person_name in tqdm(os.listdir(input_dir)):
     personDir = os.path.join(input_dir, person_name)
     incrLabel = False
-    for person in os.listdir(personDir):
+    for person in tqdm(os.listdir(personDir)):
         imgPath = os.path.join(personDir, person)
         if not os.path.exists(imgPath):
             print('image not found (%s)'%imgPath)

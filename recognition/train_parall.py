@@ -66,9 +66,9 @@ def parse_args():
   args = parser.parse_args()
   return args
 
-
+fixed_param_names = []
 def get_symbol_embedding():
-  embedding = eval(config.net_name).get_symbol()
+  embedding = eval(config.net_name).get_symbol(fixed_param_names=fixed_param_names)
   all_label = mx.symbol.Variable('softmax_label')
   #embedding = mx.symbol.BlockGrad(embedding)
   all_label = mx.symbol.BlockGrad(all_label)
@@ -83,13 +83,14 @@ def get_symbol_arcface(args):
   is_softmax = True
   #print('call get_sym_arcface with', args, config)
   _weight = mx.symbol.Variable("fc7_%d_weight"%args._ctxid, shape=(args.ctx_num_classes, config.emb_size), 
-      lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult)
+      lr_mult=config.fc7_lr_mult, wd_mult=config.fc7_wd_mult, init=mx.init.Normal(0.01))
   if config.loss_name=='softmax': #softmax
     fc7 = mx.sym.FullyConnected(data=embedding, weight = _weight, no_bias = True, num_hidden=args.ctx_num_classes, name='fc7_%d'%args._ctxid)
   elif config.loss_name=='margin_softmax':
     _weight = mx.symbol.L2Normalization(_weight, mode='instance')
     nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n_%d'%args._ctxid)
     fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=args.ctx_num_classes, name='fc7_%d'%args._ctxid)
+    cosData = fc7
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       gt_one_hot = mx.sym.one_hot(gt_label, depth = args.ctx_num_classes, on_value = 1.0, off_value = 0.0)
       if config.loss_m1==1.0 and config.loss_m2==0.0:
@@ -111,6 +112,79 @@ def get_symbol_arcface(args):
         diff = margin_fc7_onehot - fc7_onehot
         fc7 = fc7+diff
     fc7 = fc7*config.loss_s
+  elif config.loss_name == 'svx_margin':
+    s = config.loss_s
+    _weight = mx.symbol.L2Normalization(_weight, mode='instance')
+    nembedding = mx.symbol.L2Normalization(embedding, mode='instance', name='fc1n_%d'%args._ctxid)
+    fc7 = mx.sym.FullyConnected(data=nembedding, weight = _weight, no_bias = True, num_hidden=args.ctx_num_classes, name='fc7_%d'%args._ctxid)
+    cosData = fc7
+    if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
+      gt_one_hot = mx.sym.one_hot(gt_label, depth = args.ctx_num_classes, on_value = 1.0, off_value = 0.0)  
+      if config.loss_m1==1.0 and config.loss_m2==0.0:
+        _one_hot = gt_one_hot*args.margin_b
+        fc7 = fc7-_one_hot
+      else:
+        fc7_onehot = fc7 * gt_one_hot
+        cos_t = fc7_onehot
+        t0 = mx.sym.arccos(cos_t)
+        t = mx.sym.arccos(cos_t)
+        if config.loss_m1!=1.0:
+          t = t*config.loss_m1
+        if config.loss_m2>0.0:
+          t = t+config.loss_m2
+        # 0<=theta+m<=pi
+        #piSymbol = mx.sym.Variable(name='PI', shape=(1, ), lr_mult=0, init=mx.init.Constant(3.1415926))
+        #piSymbol = mx.sym.ones((1))*3.1415926
+        #thMask = mx.sym.broadcast_greater_equal(t, piSymbol)
+        #fixed_param_names.append("PI")
+        #t = mx.sym.where(thMask, t0, t) # boundary protect
+        body = mx.sym.cos(t)
+        #sin_m = math.sin(m)
+        #mm = sin_m * m
+        #keep_val = s*(cos_t - mm)   #tricks : additive margin instead
+        if config.loss_m3>0.0:
+          body = body - config.loss_m3
+        body = body * gt_one_hot
+        
+      # inter class  
+      ## mask selection
+      cosTheta = fc7
+      nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = args.ctx_num_classes, on_value = 0.0, off_value = 1.0)
+      
+      ### add margin for non groundth class
+      if config.loss_nm1 > 1.0 or config.loss_nm2 > 0.0 or config.loss_nm3 > 0.0:
+        nt0 = mx.sym.arccos(cosTheta)
+        nt = mx.sym.arccos(cosTheta)
+        if config.loss_nm1!=1.0:
+          nt = nt/config.loss_nm1
+        if config.loss_nm2>0.0:
+          nt = nt-config.loss_nm2
+        # 0<=nm1*theta-nm2<=pi
+        #zeroSymbol = mx.sym.Variable(name='ZERO', shape=(1, ), lr_mult=0, init=mx.init.Constant(0))
+        #zeroSymbol = mx.sym.zeros((1))
+        #nthMask = mx.sym.broadcast_lesser(nt, zeroSymbol)
+        #fixed_param_names.append("ZERO")
+        #nt = mx.sym.where(nthMask, nt0, nt)
+        cosTheta = mx.sym.cos(nt)
+        if config.loss_nm3>0.0:
+          cosTheta = cosTheta + config.loss_nm3
+        
+      hardMask = mx.sym.broadcast_greater_equal(cosData, body)*nonGroundTruthMask # use cosData instead of cosTheta for difficulty lowering 
+      ## calculation of interCosTheta
+      interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0)*hardMask + cosTheta*nonGroundTruthMask
+      
+      # intra class
+      intraCosTheta = body
+      fc7 = interCosTheta + intraCosTheta
+    fc7 = fc7 * s
+
+  # noise layer implementation
+  if config.noise_layer and (config.loss_name == 'svx_margin'):
+    fc7 = fc7 / config.loss_s
+    
+    noiseLogits, noiseRatio = mx.symbol.Custom(marginData=fc7, cosData=cosData, label=gt_label, name='noise', op_type='noiselayer')
+    
+    fc7 = noiseLogits * config.loss_s
 
   out_list = []
   out_list.append(fc7)

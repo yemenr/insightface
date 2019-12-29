@@ -19,6 +19,7 @@ from mxnet.model import BatchEndParam
 from mxnet import io
 import mxnet.ndarray as nd
 from config import config
+import pdb
 
 class ParallModule(BaseModule):
     def __init__(self, symbol, data_names, label_names,
@@ -34,7 +35,8 @@ class ParallModule(BaseModule):
         self._work_load_list = work_load_list
         self._num_classes = config.num_classes
         self._batch_size = args.batch_size
-        self._verbose = args.verbose
+        #self._verbose = args.verbose
+        self._verbose = args.frequent
         self._emb_size = config.emb_size
         self._local_class_start = args.local_class_start
         self._iter = 0
@@ -215,7 +217,6 @@ class ParallModule(BaseModule):
         #print('{fc7_weight[0][0]}', self._iter, g['fc7_0_weight'].asnumpy()[0][0])
         #print('{pre_fc1_weight[0][0]}', self._iter, g['pre_fc1_weight'].asnumpy()[0][0])
 
-
         assert self.binded and self.params_initialized
         self._curr_module.forward(data_batch, is_train=is_train)
         if is_train:
@@ -294,8 +295,15 @@ class ParallModule(BaseModule):
           local_label = self.global_label - self._local_class_start
           #local_label = self.get_ndarray2(_ctx, 'test_label', local_label)
           _pred = nd.equal(fc7_pred, local_label)
-          print('{fc7_acc}', self._iter, nd.mean(_pred).asnumpy()[0])
 
+          # loss
+          body = nd.SoftmaxActivation(data=fc7_prob)
+          body = nd.log(body + 1e-28)
+          _label = nd.one_hot(local_label, depth=self._ctx_num_classes*len(self._context), on_value=-1.0, off_value=0.0)
+          body = body * _label
+          ce_loss = nd.sum(body).asnumpy()[0] / self._batch_size
+
+          print('Batch[%d] lossValue=%f acc=%f' % (self._iter, ce_loss, nd.mean(_pred).asnumpy()[0]))
 
         #local_fc1_grad = []
         #fc1_grad_ctx = self._ctx_cpu
@@ -444,7 +452,6 @@ class ParallModule(BaseModule):
         """
         assert num_epoch is not None, 'please specify number of epochs'
         assert arg_params is None and aux_params is None
-
         self.bind(data_shapes=train_data.provide_data, label_shapes=train_data.provide_label,
                   for_training=True, force_rebind=force_rebind)
         if monitor is not None:
