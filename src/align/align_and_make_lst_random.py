@@ -147,6 +147,12 @@ def main(args):
                 #warped = None                       
                 
                 if _rd==1:
+                    # do resize
+                    maxSide = max(img.shape[0], img.shape[1])
+                    if maxSide > 640:
+                        shrinkRatio = (640*100 // maxSide) / 100.0
+                        shrinkRatio = max(shrinkRatio, 0.01)
+                        img = cv2.resize(img, (0, 0), fx=shrinkRatio, fy=shrinkRatio)
                     bounding_boxes, points = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold_, factor)
                 else:
                     fixedSize = 640
@@ -165,7 +171,7 @@ def main(args):
                     if nrof_faces > 1:                
                         if args.detect_multiple_faces:
                             for i in range(nrof_faces):
-                                if scores[i] > 0:
+                                if scores[i] > 0.95:
                                     bb = np.squeeze(det[i])
                                     bb[0] = max(0,bb[0])
                                     bb[1] = max(0,bb[1])
@@ -207,6 +213,7 @@ def main(args):
                                     aligned_imgs.append(warped)
                                     nrof[1]+=1
                         else:
+                            '''
                             bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
                             img_center = img_size / 2
                             offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
@@ -252,6 +259,48 @@ def main(args):
                                 warped = cv2.resize(warped, (image_size[1], image_size[0]))
                             
                             aligned_imgs.append(warped)
+                            nrof[2]+=1
+                            '''
+                            index = np.argmax(scores) # some extra weight on the centering
+                            bb = np.squeeze(det[index])
+                        
+                            bb[0] = max(0,bb[0])
+                            bb[1] = max(0,bb[1])
+                            bb[2] = min(bb[2],img_size[1])
+                            bb[3] = min(bb[3],img_size[0])
+                            
+                            if ((bb[0] >= img_size[1]) or (bb[1] >= img_size[0]) or (bb[2] > img_size[1]) or (bb[3] > img_size[0])):
+                                continue
+                            
+                            h = bb[3]-bb[1]
+                            w = bb[2]-bb[0]
+                            x = bb[0]
+                            y = bb[1] 
+                            _w = int((float(h)/image_size[0])*image_size[1] )
+                            x += (w-_w)//2
+                            #x = min( max(0,x), img.shape[1] )
+                            x = max(0,x)
+                            xw = x+_w
+                            xw = min(xw, img.shape[1])
+                            roi = np.array( (x, y, xw, y+h), dtype=np.int32)
+                            
+                            if _rd == 1:
+                                faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                dst = points[:, 0].reshape( (2,5) ).T
+                            else:
+                                faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
+                                dst = points[0, :]
+                            tform = trans.SimilarityTransform()
+                            tform.estimate(dst, src)
+                            M = tform.params[0:2,:]
+                            warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            #M = tform.params
+                            #warped = cv2.warpPerspective(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
+                            if (warped is None) or (np.sum(warped) == 0):
+                                warped = faceImg
+                                warped = cv2.resize(warped, (image_size[1], image_size[0]))
+                            
+                            aligned_imgs.append(warped)  
                             nrof[2]+=1
                     else:
                         bb = np.squeeze(det[0])

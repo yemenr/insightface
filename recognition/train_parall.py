@@ -16,6 +16,7 @@ import pickle
 import sklearn
 import numpy as np
 from image_iter import FaceImageIter
+from image_iter_gluon import FaceImageDataset
 import mxnet as mx
 from mxnet import ndarray as nd
 import argparse
@@ -292,18 +293,32 @@ def train_net(args):
         args = args,
     )
     val_dataiter = None
-    train_dataiter = FaceImageIter(
-        batch_size           = args.batch_size,
-        data_shape           = data_shape,
-        path_imgrec          = path_imgrec,
-        shuffle              = True,
-        rand_mirror          = config.data_rand_mirror,
-        mean                 = mean,
-        cutoff               = config.data_cutoff,
-        color_jittering      = config.data_color,
-        images_filter        = config.data_images_filter,
+    # train_dataiter = FaceImageIter(
+    #     batch_size           = args.batch_size,
+    #     data_shape           = data_shape,
+    #     path_imgrec          = path_imgrec,
+    #     shuffle              = True,
+    #     rand_mirror          = config.data_rand_mirror,
+    #     mean                 = mean,
+    #     cutoff               = config.data_cutoff,
+    #     color_jittering      = config.data_color,
+    #     images_filter        = config.data_images_filter,
+    # )
+    train_dataset = FaceImageDataset(
+        batch_size=args.batch_size,
+        data_shape=data_shape,
+        path_imgrec=path_imgrec,
+        shuffle=True,
+        rand_mirror=config.data_rand_mirror,
+        mean=mean,
+        cutoff=config.data_cutoff,
+        color_jittering=config.data_color,
+        images_filter=config.data_images_filter,
     )
 
+    train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover",
+                                          num_workers=8)
+    train_dataiter = mx.contrib.io.DataLoaderIter(train_data)
 
     
     if config.net_name=='fresnet' or config.net_name=='fmobilefacenet':
