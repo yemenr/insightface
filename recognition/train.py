@@ -28,6 +28,7 @@ import fmobilefacenet
 import fmobilenet
 import fmnasnet
 import fdensenet
+import vargfacenet
 import time
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
 import noise_layer
@@ -403,6 +404,7 @@ def train_net(args):
       #    color_jittering      = config.data_color,
       #    images_filter        = config.data_images_filter,
       #)
+      #from image_iter_gluon_augmentation import FaceImageDataset
       from image_iter_gluon import FaceImageDataset
       train_dataset = FaceImageDataset(
           batch_size           = args.batch_size,
@@ -416,7 +418,7 @@ def train_net(args):
           images_filter        = config.data_images_filter,
       )
 
-      train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover", num_workers=8)
+      train_data = mx.gluon.data.DataLoader(train_dataset, args.batch_size, shuffle=True, last_batch="rollover", num_workers=config.num_workers)
       train_dataiter = mx.contrib.io.DataLoaderIter(train_data)
       metric1 = AccMetric()
       eval_metrics = [mx.metric.create(metric1)]

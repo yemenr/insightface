@@ -33,12 +33,12 @@ def ConvOnly(data, num_filter=1, kernel=(1, 1), stride=(1, 1), pad=(0, 0), num_g
     
 def DResidual(data, fixed_param_names, num_out=1, kernel=(3, 3), stride=(2, 2), pad=(1, 1), num_group=1, name=None, suffix=''):
     conv = Conv(data=data, num_filter=num_group, kernel=(1, 1), pad=(0, 0), stride=(1, 1), name='%s%s_conv_sep' %(name, suffix))
-    if stride==(2, 2):
-        conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=(1, 1), name='%s%s_conv_dw' %(name, suffix))    
+    #if stride==(2, 2):
+    #    conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=(1, 1), name='%s%s_conv_dw' %(name, suffix))    
         # blur pooling
-        conv_dw = symbol_utils.antialiased_downsample(inputs=conv_dw, name=name+suffix, in_ch=num_group, fixed_param_names=fixed_param_names)
-    else:
-        conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=stride, name='%s%s_conv_dw' %(name, suffix))
+    #    conv_dw = symbol_utils.antialiased_downsample(inputs=conv_dw, name=name+suffix, in_ch=num_group, fixed_param_names=fixed_param_names)
+    #else:
+    conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=stride, name='%s%s_conv_dw' %(name, suffix))
     
     proj = Linear(data=conv_dw, num_filter=num_out, kernel=(1, 1), pad=(0, 0), stride=(1, 1), name='%s%s_conv_proj' %(name, suffix))
     return proj
@@ -46,9 +46,9 @@ def DResidual(data, fixed_param_names, num_out=1, kernel=(3, 3), stride=(2, 2), 
 def Residual(data, fixed_param_names, num_block=1, num_out=1, kernel=(3, 3), stride=(1, 1), pad=(1, 1), num_group=1, name=None, suffix=''):
     identity=data
     for i in range(num_block):
-    	shortcut=identity
-    	conv=DResidual(data=identity, fixed_param_names=fixed_param_names, num_out=num_out, kernel=kernel, stride=stride, pad=pad, num_group=num_group, name='%s%s_block' %(name, suffix), suffix='%d'%i)
-    	identity=conv+shortcut
+        shortcut=identity
+        conv=DResidual(data=identity, fixed_param_names=fixed_param_names, num_out=num_out, kernel=kernel, stride=stride, pad=pad, num_group=num_group, name='%s%s_block' %(name, suffix), suffix='%d'%i)
+        identity=conv+shortcut
     return identity
         
 
@@ -60,6 +60,13 @@ def get_symbol(fixed_param_names):
     data = data-127.5
     data = data*0.0078125
     blocks = config.net_blocks
+
+    # do stn part
+    if config.add_stn:
+        ## mx.sym中写好了STN层包括grid generator和sampler，只需要送入相应参数θ
+        data = mx.sym.SpatialTransformer(data=data, loc=symbol_utils.get_loc(data), target_shape=(112, 112),
+                                      transform_type="affine", sampler_type="bilinear")
+
     conv_1 = Conv(data, num_filter=64, kernel=(3, 3), pad=(1, 1), stride=(2, 2), name="conv_1")
     if blocks[0]==1:
       conv_2_dw = Conv(conv_1, num_group=64, num_filter=64, kernel=(3, 3), pad=(1, 1), stride=(1, 1), name="conv_2_dw")

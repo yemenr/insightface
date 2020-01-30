@@ -42,6 +42,17 @@ def get_fc1(last_conv, num_classes, fc_type, input_channel=512):
     body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
     fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
+  elif fc_type=='SFC':
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
+    body = Conv(data=body, num_filter=input_channel, kernel=(3,3), stride=(2,2), pad=(1,1),
+                              no_bias=True, name="convf", num_group = input_channel)
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bnf', cudnn_off=default.memonger)
+    body = Act(data=body, act_type=config.net_act, name='reluf')
+    body = Conv(data=body, num_filter=input_channel, kernel=(1, 1), pad=(0, 0), stride=(1, 1), name="convf2")
+    body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bnf2', cudnn_off=default.memonger)
+    body = Act(data=body, act_type=config.net_act, name='reluf2')
+    fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
+    fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='GAP':
     bn1 = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
     relu1 = Act(data=bn1, act_type=config.net_act, name='relu1')
@@ -272,6 +283,55 @@ def antialiased_downsample(inputs, name, in_ch, fixed_param_names, pad_type='ref
     out = mx.sym.Convolution(data=inputs, weight=blurPoolW, bias=None, no_bias=True, kernel=(filt_size,filt_size), num_filter=in_ch, num_group=in_ch, stride=stride, name=name+"_BlurPool")
     
     return out
+
+def Act(data, act_type, name, lr_mult):
+    if act_type=='prelu':
+      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name, lr_mult=lr_mult)
+    else:
+      body = mx.symbol.Activation(data=data, act_type=act_type, name=name)
+    return body
+
+def get_loc(data, attr={'lr_mult': '0.01'}):
+    """
+    the localisation network in stn, it will increase acc about more than 1%,
+    when num-epoch >=15
+    """
+    ## 与gluon写法一致，只是调用的mx.symbol模块
+    loc = mx.sym.Convolution(data=data, num_filter=24, kernel=(5, 5), stride=(1, 1), name="stn_loc_conv1", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.BatchNorm(data=loc, fix_gamma=False, eps=2e-5, momentum=config.bn_mom, name="stn_loc_bn1", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.Pooling(data=loc, kernel=(2, 2), stride=(2, 2), pool_type='max', name="stn_loc_pool1")
+    loc = Act(data=loc, act_type=config.net_act, name="stn_loc_act1", lr_mult=config.stn_fc1_lr_mult)
+
+    loc = mx.sym.Convolution(data=loc, num_filter=48, kernel=(3, 3), stride=(1, 1), name="stn_loc_conv2", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.BatchNorm(data=loc, fix_gamma=False, eps=2e-5, momentum=config.bn_mom, name="stn_loc_bn2", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.Pooling(data=loc, kernel=(2, 2), stride=(2, 2), pool_type='max', name="stn_loc_pool2")
+    loc = Act(data=loc, act_type=config.net_act, name="stn_loc_act2", lr_mult=config.stn_fc1_lr_mult)
+
+    loc = mx.sym.Convolution(data=loc, num_filter=96, kernel=(3, 3), stride=(1, 1), name="stn_loc_conv3", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.BatchNorm(data=loc, fix_gamma=False, eps=2e-5, momentum=config.bn_mom, name="stn_loc_bn3", lr_mult=config.stn_fc1_lr_mult)
+    loc = mx.sym.Pooling(data=loc, kernel=(2, 2), stride=(2, 2), pool_type='max', name="stn_loc_pool3")
+    loc = Act(data=loc, act_type=config.net_act, name="stn_loc_act3", lr_mult=config.stn_fc1_lr_mult)
+
+    _weight1 = mx.symbol.Variable("stn_loc_fc1_weight", shape=(64, 12*12*96),
+                                  lr_mult=config.stn_fc1_lr_mult, wd_mult=config.stn_fc1_wd_mult, init=mx.init.Normal(0.01))
+    loc = mx.sym.FullyConnected(data=loc, weight=_weight1, no_bias=True, num_hidden=64, name="stn_loc_fc1")
+    loc = mx.sym.BatchNorm(data=loc, fix_gamma=False, eps=2e-5, momentum=config.bn_mom, name="stn_loc_bn4")
+    loc = Act(data=loc, act_type=config.net_act, name="stn_loc_act4", lr_mult=config.stn_fc1_lr_mult)
+
+    _weight2 = mx.symbol.Variable("stn_loc_fc2_weight", shape=(64, 64),
+                                  lr_mult=config.stn_fc2_lr_mult, wd_mult=config.stn_fc2_wd_mult, init=mx.init.Normal(0.01))
+    loc = mx.sym.FullyConnected(data=loc, weight=_weight2, no_bias=True, num_hidden=64, name="stn_loc_fc2")
+    loc = mx.sym.BatchNorm(data=loc, fix_gamma=False, eps=2e-5, momentum=config.bn_mom, name="stn_loc_bn5")
+    loc = Act(data=loc, act_type=config.net_act, name="stn_loc_act5", lr_mult=config.stn_fc2_lr_mult)
+
+    _weight3 = mx.symbol.Variable("stn_loc_fc3_weight", shape=(6, 64),
+                                  lr_mult=config.stn_fc3_lr_mult, wd_mult=config.stn_fc3_wd_mult,
+                                  init=mx.init.Normal(0.01))
+    _bias3 = mx.symbol.Variable("stn_loc_fc3_bias", shape=(6, ),
+                                lr_mult=config.stn_fc3_lr_mult, wd_mult=config.stn_fc3_wd_mult,
+                                init=mx.init.Constant(mx.nd.array([1,0,0,0,1,0])))
+    loc = mx.sym.FullyConnected(data=loc, weight=_weight3, bias=_bias3, num_hidden=6, name="stn_loc_fc3")
+    return loc
 
 def get_head(data, version_input, num_filter):
     bn_mom = config.bn_mom
