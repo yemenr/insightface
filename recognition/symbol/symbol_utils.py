@@ -5,6 +5,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config, default
 import numpy as np
 
+swish_index = 0
+
 def Conv(**kwargs):
     #name = kwargs.get('name')
     #_weight = mx.symbol.Variable(name+'_weight')
@@ -13,12 +15,25 @@ def Conv(**kwargs):
     body = mx.sym.Convolution(**kwargs)
     return body
 
-def Act(data, act_type, name):
-    #ignore param act_type, set it in this function 
+#def Act(data, act_type, name):
+#    #ignore param act_type, set it in this function 
+#    if act_type=='prelu':
+#      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
+#    else:
+#      body = mx.sym.Activation(data=data, act_type=act_type, name=name)
+#    return body
+
+def Act(data, act_type, name = 'act', lr_mult = 1.0):
     if act_type=='prelu':
-      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
+      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name, lr_mult = lr_mult)
+    elif act_type == 'swish':
+      tmp_sigmoid = mx.symbol.Activation(data=data, act_type='sigmoid', name=name + '_sigmoid')
+      global swish_index
+      body = mx.symbol.elemwise_mul(data, tmp_sigmoid, name= 'swish_' + str(swish_index))
+      swish_index += 1
     else:
-      body = mx.sym.Activation(data=data, act_type=act_type, name=name)
+      body = mx.symbol.Activation(data=data, act_type=act_type, name=name)
+
     return body
 
 bn_mom = config.bn_mom
@@ -92,6 +107,7 @@ def get_fc1(last_conv, num_classes, fc_type, input_channel=512):
     fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=0.9, name='fc1', cudnn_off=default.memonger)
   elif fc_type=="GDC": #mobilefacenet_v1
     conv_6_dw = Linear(last_conv, num_filter=input_channel, num_group=input_channel, kernel=(7,7), pad=(0, 0), stride=(1, 1), name="conv_6dw7_7")  
+    #conv_6_dw = Linear(last_conv, num_filter=input_channel, num_group=input_channel, kernel=(4,7), pad=(0, 0), stride=(1, 1), name="conv_6dw7_7")  
     conv_6_f = mx.sym.FullyConnected(data=conv_6_dw, num_hidden=num_classes, name='pre_fc1')
     fc1 = mx.sym.BatchNorm(data=conv_6_f, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='F':
@@ -275,7 +291,7 @@ def antialiased_downsample(inputs, name, in_ch, fixed_param_names, pad_type='ref
     
     W_val = get_filter(filt_size, in_ch)
     # padding
-    inputs = mx.sym.pad(inputs, mode=pad_type, pad_width=(0,)*4+tuple(pad_size), name=name+"_padding")
+    inputs = mx.sym.pad(inputs, mode=pad_type, pad_width=(0,)*4+tuple(pad_size), name=name+"_padding", constant_value=0)
     # downsample
     blurPoolW = mx.sym.Variable(name+"_BlurPool_weight", shape=W_val.shape, init=mx.init.Constant(W_val))
     mx.sym.BlockGrad(blurPoolW)
@@ -283,13 +299,6 @@ def antialiased_downsample(inputs, name, in_ch, fixed_param_names, pad_type='ref
     out = mx.sym.Convolution(data=inputs, weight=blurPoolW, bias=None, no_bias=True, kernel=(filt_size,filt_size), num_filter=in_ch, num_group=in_ch, stride=stride, name=name+"_BlurPool")
     
     return out
-
-def Act(data, act_type, name, lr_mult):
-    if act_type=='prelu':
-      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name, lr_mult=lr_mult)
-    else:
-      body = mx.symbol.Activation(data=data, act_type=act_type, name=name)
-    return body
 
 def get_loc(data, attr={'lr_mult': '0.01'}):
     """

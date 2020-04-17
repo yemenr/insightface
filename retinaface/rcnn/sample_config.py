@@ -66,6 +66,7 @@ config.CONTEXT_FILTER_RATIO = 1
 config.max_feat_channel = 9999
 
 config.USE_CROP = True
+config.USE_FPN = True
 config.USE_DCN = 0
 config.FACE_LANDMARK = True
 config.USE_OCCLUSION = False
@@ -116,6 +117,7 @@ config.TRAIN.ASPECT_GROUPING = False
 # RPN anchor loader
 # rpn anchors batch size
 config.TRAIN.RPN_ENABLE_OHEM = 2
+config.TRAIN.OHEM_MODE = 1
 config.TRAIN.RPN_BATCH_SIZE = 256
 # rpn anchors sampling params
 config.TRAIN.RPN_FG_FRACTION = 0.25
@@ -129,7 +131,7 @@ config.TRAIN.RPN_FORCE_POSITIVE = False
 # rpn bounding box regression params
 config.TRAIN.BBOX_STDS = (1.0, 1.0, 1.0, 1.0)
 config.TRAIN.LANDMARK_STD = 1.0
-config.TRAIN.OHEM_MODE = 1
+
 
 config.TEST = edict()
 
@@ -193,8 +195,8 @@ network.mnet.LANDMARK_LR_MULT = 2.5
 
 network.resnet = edict()
 #network.resnet.pretrained = 'model/ResNet50_v1d'
-network.resnet.pretrained = 'model/resnet-50'
-#network.resnet.pretrained = 'model/resnet-152'
+#network.resnet.pretrained = 'model/resnet-50'
+network.resnet.pretrained = 'model/resnet-152'
 #network.resnet.pretrained = 'model/senet154'
 #network.resnet.pretrained = 'model/densenet161'
 network.resnet.pretrained_epoch = 0
@@ -217,6 +219,7 @@ network.resnet.RPN_BATCH_SIZE = 256
 network.resnet.RPN_ANCHOR_CFG = RAC_RETINA
 
 network.resnet.USE_DCN = 0
+network.resnet.pretrained = 'model/resnet-50'
 network.resnet.RPN_ANCHOR_CFG = RAC_SSH
 
 

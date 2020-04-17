@@ -76,7 +76,8 @@ def do_clean(args):
       _idx = _list[i]
       s = imgrec.read_idx(_idx)
       ocontents.append(s)
-    if len(ocontents)<15:
+    #if len(ocontents)<15:
+    if len(ocontents)<5:
       nrof_removed+=len(ocontents)
       continue
     embeddings = None
@@ -103,7 +104,7 @@ def do_clean(args):
         data[ii][:] = data[0][:]
         #label[ii][:] = label[0][:]
         ii+=1
-      db = mx.io.DataBatch(data=(data,))#, label=(label,))
+      db = mx.io.DataBatch(data=(data,))#, softmax_label=(label,))
       model.forward(db, is_train=False)
       net_out = model.get_outputs()
       net_out = net_out[0].asnumpy()
@@ -171,7 +172,7 @@ def do_clean(args):
     _header = mx.recordio.IRHeader(1, (id_idx, idx), 0, 0)
     s = mx.recordio.pack(_header, b'')
     writer.write_idx(0, s)
-  print(nrof_images, nrof_removed)
+  print('stat result:', nrof_images, nrof_removed)
   with open(os.path.join(args.output, 'property'), 'w') as f:
     f.write("%d,%d,%d"%(len(id2label), image_size[0], image_size[1]))
 

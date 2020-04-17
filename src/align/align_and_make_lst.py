@@ -323,6 +323,7 @@ def main(args):
                     
                     for i, warped in enumerate(aligned_imgs):
                         target_file = os.path.join(target_dir, c+str(i)+'.png')
+                        #target_file = os.path.join(target_dir, c)
                         bgr = warped[...,::-1]
                         cv2.imwrite(target_file, bgr)
                         oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))
@@ -336,6 +337,7 @@ def main(args):
                     warped = img[roi[1]:roi[3],roi[0]:roi[2],:]
                     warped = cv2.resize(warped, (image_size[1], image_size[0]))
                     target_file = os.path.join(target_dir, c+'.png')
+                    #target_file = os.path.join(target_dir, c)
                     bgr = warped[...,::-1]
                     cv2.imwrite(target_file, bgr)
                     oline = '%d\t%s\t%d\n' % (1,target_file, int(fimage.classname))

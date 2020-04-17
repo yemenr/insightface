@@ -76,8 +76,8 @@ class FaceImageDataset(Dataset):
                                                 #transforms.RandomContrast(0.3),
                                                 #transforms.RandomSaturation(0.3),
                                                 transforms.RandomFlipLeftRight(),
-                                                transforms.RandomRotation([-45, 45.]),
-                                                transforms.ToTensor()
+                                                #transforms.RandomRotation([-10.0, 10.0], zoom_out=True, rotate_with_proba=1.0),
+                                                #transforms.ToTensor()
                                             ])
 
     def __len__(self):
@@ -102,9 +102,44 @@ class FaceImageDataset(Dataset):
         '''
         if _data.shape[0] != self.data_shape[1]:
             _data = mx.image.resize_short(_data, self.data_shape[1])
-        
+
+        if self.cutoff>0:
+            #_rd = random.randint(0,1)
+            _rd = 1
+            # p > 0.6
+            if np.random.random() > 0.6:
+                _rd = 0
+            else:
+                _rd = 1
+            if _rd==1:
+                #print('do cutoff aug', self.cutoff)
+                #centerh = random.randint(0, _data.shape[0]-1)
+                #centerw = random.randint(0, _data.shape[1]-1)
+                #half = self.cutoff//2
+                #starth = max(0, centerh-half)
+                #endh = min(_data.shape[0], centerh+half)
+                #startw = max(0, centerw-half)
+                #endw = min(_data.shape[1], centerw+half)
+                #print(starth, endh, startw, endw, _data.shape)
+                h0 = random.randint(56,76)
+                _data[h0:112, 10:102, :] = 128
+
+        #x = _data.asnumpy()[...,::-1]
+        #cv2.imwrite("1.png", x)
+
         if self._transform is not None:
-           _data = self._transform(_data)
+            _data = self._transform(_data)
+        #x = _data.asnumpy()[...,::-1]
+        #cv2.imwrite("3.png", x)
+        _data = self.postprocess_data(_data)
+
+        # do rotating
+        #rot_angle = random.randint(-15,15)
+        #args = {'src': _data, 'rotation_degrees': rot_angle, 'zoom_in': False, 'zoom_out': False}
+        #_data = mx.image.imrotate(**args)        
+        #x = _data.transpose((1,2,0)).asnumpy()[...,::-1]
+        #cv2.imwrite("2.png", x)
+        #pdb.set_trace()
         return _data, label
 
     def brightness_aug(self, src, x):

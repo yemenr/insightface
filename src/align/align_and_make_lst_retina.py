@@ -19,6 +19,7 @@ import face_image
 from skimage import transform as trans
 import cv2
 import pdb
+from tqdm import tqdm
 
 def to_rgb(img):
     w, h = img.shape
@@ -94,7 +95,7 @@ def main(args):
     with open(output_filename, "w") as text_file:
         nrof_images_total = 0
         nrof = np.zeros( (5,), dtype=np.int32)
-        for fimage in dataset:
+        for fimage in tqdm(dataset):
             if nrof_images_total%100==0:
                 print("Processing %d, (%s)" % (nrof_images_total, nrof))
             nrof_images_total += 1

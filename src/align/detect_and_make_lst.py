@@ -115,7 +115,11 @@ def main(args):
             filename = os.path.splitext(os.path.split(image_path)[1])[0]
             #print(image_path)
             try:
-                img = imageio.imread(image_path)
+                #img = imageio.imread(image_path)
+                 img = cv2.imread(image_path)
+                 if img is None:
+                     continue
+                 img = img[...,::-1]
             except (IOError, ValueError, IndexError) as e:
                 errorMessage = '{}: {}'.format(image_path, e)
                 print(errorMessage)
@@ -192,7 +196,7 @@ def main(args):
                                     
                                     aligned_imgs.append(warped)
                                     nrof[1]+=1
-                        else:
+                        else:    
                             '''
                             bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
                             img_center = img_size / 2
@@ -223,20 +227,14 @@ def main(args):
                             roi = np.array( (x, y, xw, y+h), dtype=np.int32)
                             
                             faceImg = img[roi[1]:roi[3],roi[0]:roi[2],:]
-                            dst = points[:, index].reshape( (2,5) ).T
-                            tform = trans.SimilarityTransform()
-                            tform.estimate(dst, src)
-                            M = tform.params[0:2,:]
-                            warped = cv2.warpAffine(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                            #M = tform.params
-                            #warped = cv2.warpPerspective(img,M,(image_size[1],image_size[0]), borderValue = 0.0)
-                            if (warped is None) or (np.sum(warped) == 0):
-                                warped = faceImg
-                                warped = cv2.resize(warped, (image_size[1], image_size[0]))
-                            
+                            warped = cv2.resize(faceImg, (image_size[1], image_size[0]))
                             aligned_imgs.append(warped)
                             nrof[2]+=1
                             '''
+                            #print('multi_faces to detect "%s", face detection error' % image_path)
+                            #text_file.write('%s\n' % (output_filename))
+                            #nrof[4]+=1
+                            #continue
                             index = np.argmax(scores) # some extra weight on the centering
                             bb = np.squeeze(det[index])
                         
@@ -264,7 +262,7 @@ def main(args):
                             warped = cv2.resize(faceImg, (image_size[1], image_size[0]))
                             
                             aligned_imgs.append(warped)  
-                            nrof[2]+=1
+                            nrof[2]+=1                            
                     else:
                         bb = np.squeeze(det[0])
                         

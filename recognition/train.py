@@ -335,7 +335,7 @@ def train_net(args):
     path_imglist = None
     image_size = config.image_shape[0:2]
     assert len(image_size)==2
-    assert image_size[0]==image_size[1]
+    #assert image_size[0]==image_size[1]
     print('image_size', image_size)
     print('num_classes', config.num_classes)
     path_imgrec = os.path.join(data_dir, "train.rec")

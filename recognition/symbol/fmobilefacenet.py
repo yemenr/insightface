@@ -3,17 +3,18 @@ import sys
 import os
 import mxnet as mx
 import symbol_utils
+from symbol_utils import Act
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config
 
 
-def Act(data, act_type, name):
-    #ignore param act_type, set it in this function 
-    if act_type=='prelu':
-      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
-    else:
-      body = mx.sym.Activation(data=data, act_type=act_type, name=name)
-    return body
+#def Act(data, act_type, name):
+#    #ignore param act_type, set it in this function 
+#    if act_type=='prelu':
+#      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
+#    else:
+#      body = mx.sym.Activation(data=data, act_type=act_type, name=name)
+#    return body
 
 def Conv(data, num_filter=1, kernel=(1, 1), stride=(1, 1), pad=(0, 0), num_group=1, name=None, suffix=''):
     conv = mx.sym.Convolution(data=data, num_filter=num_filter, kernel=kernel, num_group=num_group, stride=stride, pad=pad, no_bias=True, name='%s%s_conv2d' %(name, suffix))
@@ -35,8 +36,8 @@ def DResidual(data, fixed_param_names, num_out=1, kernel=(3, 3), stride=(2, 2), 
     conv = Conv(data=data, num_filter=num_group, kernel=(1, 1), pad=(0, 0), stride=(1, 1), name='%s%s_conv_sep' %(name, suffix))
     #if stride==(2, 2):
     #    conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=(1, 1), name='%s%s_conv_dw' %(name, suffix))    
-        # blur pooling
-    #    conv_dw = symbol_utils.antialiased_downsample(inputs=conv_dw, name=name+suffix, in_ch=num_group, fixed_param_names=fixed_param_names)
+    #    # blur pooling
+    #    conv_dw = symbol_utils.antialiased_downsample(inputs=conv_dw, name=name+suffix, in_ch=num_group, fixed_param_names=fixed_param_names, pad_type='constant')
     #else:
     conv_dw = Conv(data=conv, num_filter=num_group, num_group=num_group, kernel=kernel, pad=pad, stride=stride, name='%s%s_conv_dw' %(name, suffix))
     

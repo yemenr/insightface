@@ -31,6 +31,7 @@ import os
 import mxnet as mx
 import numpy as np
 import symbol_utils
+from symbol_utils import Act
 import sklearn
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config, default
@@ -44,12 +45,12 @@ def Conv(**kwargs):
     return body
 
 
-def Act(data, act_type, name):
-    if act_type=='prelu':
-      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
-    else:
-      body = mx.symbol.Activation(data=data, act_type=act_type, name=name)
-    return body
+#def Act(data, act_type, name):
+#    if act_type=='prelu':
+#      body = mx.sym.LeakyReLU(data = data, act_type='prelu', name = name)
+#    else:
+#      body = mx.symbol.Activation(data=data, act_type=act_type, name=name)
+#    return body
 
 def residual_unit_v1(data, num_filter, stride, dim_match, name, bottle_neck, **kwargs):
     """Return ResNet Unit symbol for building ResNet
