@@ -29,6 +29,7 @@ import fmobilenet
 import fmnasnet
 import fdensenet
 import vargfacenet
+import resnest
 import time
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
 import noise_layer

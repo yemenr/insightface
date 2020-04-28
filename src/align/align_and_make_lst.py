@@ -202,7 +202,6 @@ def main(args):
                                     aligned_imgs.append(warped)
                                     nrof[1]+=1
                         else:
-                            '''
                             bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
                             img_center = img_size / 2
                             offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
@@ -283,6 +282,7 @@ def main(args):
                             
                             aligned_imgs.append(warped)  
                             nrof[2]+=1
+                            '''
                     else:
                         bb = np.squeeze(det[0])
                         
