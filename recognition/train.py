@@ -486,17 +486,19 @@ def train_net(args):
       mbatch = global_step[0]
       
       if config.useWarmup and (mbatch < config.warmupSteps):
-          #opt.lr = args.lr * mbatch / config.warmupSteps
-          opt.lr = 1.0e-8
-          #print("warmup lr: ", opt.lr)
-        
+        #opt.lr = args.lr * mbatch / config.warmupSteps
+        opt.lr = 1.0e-8
+        #print("warmup lr: ", opt.lr)
+    
       if (not config.useWarmup) or (config.useWarmup and (mbatch >= config.warmupSteps)):
-        if mbatch==config.warmupSteps:
-          opt.lr = 0.1
+        targetSteps = mbatch
         if config.useWarmup:
-          mbatch -= config.warmupSteps
+          if mbatch==config.warmupSteps:
+            opt.lr = args.lr
+        
+          targetSteps -= config.warmupSteps
         for step in lr_steps:
-          if mbatch==step:
+          if targetSteps==step:
             opt.lr *= 0.1
             print('lr change to', opt.lr)
             break
