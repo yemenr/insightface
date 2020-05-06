@@ -9,12 +9,14 @@ import mxnet as mx
 import mxnet.gluon as gluon
 from mxnet.gluon.block import HybridBlock
 from mxnet.gluon import nn
+import numpy as np
 
 import symbol_utils
 from dropblock import DropBlock
 from splat import SplitAttentionConv
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config
+from symbol_utils import gluon_act
 
 def _update_input_size(input_size, stride):
     sh, sw = (stride, stride) if isinstance(stride, int) else stride
@@ -56,7 +58,7 @@ class Bottleneck(HybridBlock):
         self.conv1 = nn.Conv2D(channels=group_width, kernel_size=1,
                                use_bias=False, in_channels=in_channels)
         self.bn1 = norm_layer(in_channels=group_width, **norm_kwargs)
-        self.relu1 = nn.Activation('relu')
+        self.relu1 = gluon_act(config.net_act)
         if self.use_splat:
             self.conv2 = SplitAttentionConv(channels=group_width, kernel_size=3, strides = 1 if self.avd else strides,
                                               padding=dilation, dilation=dilation, groups=cardinality, use_bias=False,
@@ -67,7 +69,7 @@ class Bottleneck(HybridBlock):
                                    padding=dilation, dilation=dilation, groups=cardinality, use_bias=False,
                                    in_channels=group_width, **kwargs)
             self.bn2 = norm_layer(in_channels=group_width, **norm_kwargs)
-            self.relu2 = nn.Activation('relu')
+            self.relu2 = gluon_act(config.net_act)
         self.conv3 = nn.Conv2D(channels=channels*4, kernel_size=1, use_bias=False, in_channels=group_width)
         if not last_gamma:
             self.bn3 = norm_layer(in_channels=channels*4, **norm_kwargs)
@@ -76,7 +78,7 @@ class Bottleneck(HybridBlock):
                                   **norm_kwargs)
         if self.avd:
             self.avd_layer = nn.AvgPool2D(3, strides, padding=1)
-        self.relu3 = nn.Activation('relu')
+        self.relu3 = gluon_act(config.net_act)
         self.downsample = downsample
         self.dilation = dilation
         self.strides = strides
@@ -181,17 +183,17 @@ class ResNet(HybridBlock):
                 self.conv1.add(nn.Conv2D(channels=stem_width, kernel_size=3, strides=1,
                                          padding=1, use_bias=False, in_channels=3))
                 self.conv1.add(norm_layer(in_channels=stem_width, **norm_kwargs))
-                self.conv1.add(nn.Activation('relu'))
+                self.conv1.add(gluon_act(config.net_act))
                 self.conv1.add(nn.Conv2D(channels=stem_width, kernel_size=3, strides=1,
                                          padding=1, use_bias=False, in_channels=stem_width))
                 self.conv1.add(norm_layer(in_channels=stem_width, **norm_kwargs))
-                self.conv1.add(nn.Activation('relu'))
+                self.conv1.add(gluon_act(config.net_act))
                 self.conv1.add(nn.Conv2D(channels=stem_width*2, kernel_size=3, strides=1,
                                          padding=1, use_bias=False, in_channels=stem_width))
             
             self.bn1 = norm_layer(in_channels=64 if not deep_stem else stem_width*2,
                                   **norm_kwargs)
-            self.relu = nn.Activation('relu')            
+            self.relu = gluon_act(config.net_act)            
             
             # stage 1
             self.layer1 = self._make_layer(1, block, 64, layers[0], strides=2, avg_down=avg_down,
@@ -356,15 +358,23 @@ def get_symbol(fixed_param_names):
     radix = int(radix)
     cardinality = int(cardinality)
 
+    norm_kwargs = {}
+    norm_kwargs['momentum'] = config.bn_mom
+    norm_kwargs['epsilon'] = 2e-5
+
     net = ResNet(Bottleneck, units, radix=radix, cardinality=cardinality, bottleneck_width=bottleneckWidth,
                  deep_stem=config.deepStem, avg_down=config.avgDown, stem_width=config.stemWidth,
                  avd=config.avd, avd_first=config.avdFirst, use_splat=config.useSplat, dropblock_prob=config.dropblockProb,
-                 final_drop=config.finalDrop, name_prefix=('resnest_%d' % num_layers))
+                 final_drop=config.finalDrop, input_size=config.image_shape[0], norm_kwargs=norm_kwargs, name_prefix=('resnest_%d' % num_layers))
                  
     data = mx.sym.Variable(name='data')
+    if config.fp_16:
+        data = mx.sym.Cast(data=data, dtype=np.float16)
+        net.cast(np.float16)
     data = data-127.5
     data = data*0.0078125
     body = net(data)
+
     fc1 = symbol_utils.get_fc1(body, config.emb_size, config.net_output)
     
     return fc1

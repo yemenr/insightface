@@ -33,6 +33,7 @@ import resnest
 import time
 sys.path.append(os.path.join(os.path.dirname(__file__), 'losses'))
 import noise_layer
+from mxnet import lr_scheduler
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -72,6 +73,10 @@ def get_symbol(args):
   if args.memonger:    
     embedding = memonger.search_plan(embedding)
   all_label = mx.symbol.Variable('softmax_label')
+  dataType = np.float32
+  if config.fp_16:
+    #all_label = mx.sym.Cast(data=all_label, dtype=np.float16)
+    dataType = np.float16
   gt_label = all_label
   is_softmax = True
   if config.loss_name=='softmax': #softmax
@@ -93,7 +98,7 @@ def get_symbol(args):
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       if config.loss_m1==1.0 and config.loss_m2==0.0:
         s_m = s*config.loss_m3
-        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = s_m, off_value = 0.0)
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = s_m, off_value = 0.0, dtype=dataType)
         fc7 = fc7-gt_one_hot
       else:
         zy = mx.sym.pick(fc7, gt_label, axis=1)
@@ -109,7 +114,7 @@ def get_symbol(args):
         new_zy = body*s
         diff = new_zy - zy
         diff = mx.sym.expand_dims(diff, 1)
-        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0, dtype=dataType)
         body = mx.sym.broadcast_mul(gt_one_hot, diff)
         fc7 = fc7+body
     '''
@@ -199,7 +204,7 @@ def get_symbol(args):
     cosData = fc7
     if config.loss_m1!=1.0 or config.loss_m2!=0.0 or config.loss_m3!=0.0:
       if config.loss_m1==1.0 and config.loss_m2==0.0:
-        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = config.loss_m3, off_value = 0.0)
+        gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = config.loss_m3, off_value = 0.0, dtype=dataType)
         fc7 = fc7-gt_one_hot
       else:
         cos_t = mx.sym.pick(fc7, gt_label, axis=1)
@@ -226,8 +231,7 @@ def get_symbol(args):
       # inter class  
       ## mask selection
       cosTheta = fc7
-      nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0)
-      
+      nonGroundTruthMask = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 0.0, off_value = 1.0, dtype=dataType)
       ### add margin for non groundth class
       if config.loss_nm1 > 1.0 or config.loss_nm2 > 0.0 or config.loss_nm3 > 0.0:
         nt0 = mx.sym.arccos(cosTheta)
@@ -251,7 +255,7 @@ def get_symbol(args):
       interCosTheta = ((config.mask - 1) * cosTheta + config.mask - 1.0)*hardMask + cosTheta*nonGroundTruthMask
       
       # intra class        
-      gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0)
+      gt_one_hot = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = 1.0, off_value = 0.0, dtype=dataType)
       intraCosTheta = mx.sym.broadcast_mul(gt_one_hot, body)
       fc7 = interCosTheta + intraCosTheta
     fc7 = fc7 * s
@@ -289,7 +293,12 @@ def get_symbol(args):
     noiseLogits, noiseRatio = mx.symbol.Custom(marginData=fc7, cosData=cosData, label=gt_label, name='noise', op_type='noiselayer')
     
     fc7 = noiseLogits * config.loss_s
-  
+
+  if config.fp_16:
+    fc7 = mx.sym.Cast(data=fc7, dtype=np.float32)
+    _fc7 = fc7 * config.scale16
+    #gt_label = mx.sym.Cast(data=gt_label, dtype=np.float32)
+
   if is_softmax:
     softmax = mx.symbol.SoftmaxOutput(data=fc7, label = gt_label, name='softmax', normalization='valid')
     out_list.append(softmax)
@@ -433,7 +442,10 @@ def train_net(args):
       initializer = mx.init.Xavier(rnd_type='uniform', factor_type="in", magnitude=2)
     #initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="out", magnitude=2) #resnet style
     _rescale = 1.0/args.ctx_num
-    opt = optimizer.SGD(learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale)
+    if config.fp_16:
+      _rescale /= config.scale16
+    #opt = optimizer.SGD(learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale)#, multi_precision=config.fp_16)
+    opt = optimizer.create('sgd', learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale, multi_precision=config.fp_16)
     _cb = mx.callback.Speedometer(args.batch_size, args.frequent)
 
     ver_list = []
@@ -472,11 +484,22 @@ def train_net(args):
       #global global_step
       global_step[0]+=1
       mbatch = global_step[0]
-      for step in lr_steps:
-        if mbatch==step:
-          opt.lr *= 0.1
-          print('lr change to', opt.lr)
-          break
+      
+      if config.useWarmup and (mbatch < config.warmupSteps):
+          #opt.lr = args.lr * mbatch / config.warmupSteps
+          opt.lr = 1.0e-8
+          #print("warmup lr: ", opt.lr)
+        
+      if (not config.useWarmup) or (config.useWarmup and (mbatch >= config.warmupSteps)):
+        if mbatch==config.warmupSteps:
+          opt.lr = 0.1
+        if config.useWarmup:
+          mbatch -= config.warmupSteps
+        for step in lr_steps:
+          if mbatch==step:
+            opt.lr *= 0.1
+            print('lr change to', opt.lr)
+            break
 
       _cb(param)
       if mbatch%1000==0:

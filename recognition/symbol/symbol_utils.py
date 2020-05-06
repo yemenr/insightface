@@ -4,6 +4,7 @@ import mxnet as mx
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from config import config, default
 import numpy as np
+from mxnet.gluon import nn
 
 swish_index = 0
 
@@ -22,6 +23,12 @@ def Conv(**kwargs):
 #    else:
 #      body = mx.sym.Activation(data=data, act_type=act_type, name=name)
 #    return body
+
+def gluon_act(act_type):
+    if act_type=='prelu':
+        return nn.PReLU()
+    else:
+        return nn.Activation(act_type)
 
 def Act(data, act_type, name = 'act', lr_mult = 1.0):
     if act_type=='prelu':

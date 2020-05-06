@@ -8,6 +8,9 @@
 import mxnet as mx
 from mxnet.gluon import nn
 from mxnet.gluon.nn import Conv2D, Block, HybridBlock, Dense, BatchNorm, Activation
+from symbol_utils import gluon_act
+from config import config
+import numpy as np
 
 __all__ = ['SplitAttentionConv']
 
@@ -26,11 +29,11 @@ class SplitAttentionConv(HybridBlock):
                            groups=groups*radix, *args, in_channels=in_channels, **kwargs)
         if USE_BN:
             self.bn = norm_layer(in_channels=channels*radix, **norm_kwargs)
-        self.relu = Activation('relu')
+        self.relu = gluon_act(config.net_act)
         self.fc1 = Conv2D(inter_channels, 1, in_channels=channels, groups=self.cardinality)
         if USE_BN:
             self.bn1 = norm_layer(in_channels=inter_channels, **norm_kwargs)
-        self.relu1 = Activation('relu')
+        self.relu1 = gluon_act(config.net_act)
         if drop_ratio > 0:
             self.drop = nn.Dropout(drop_ratio)
         else:
@@ -57,7 +60,12 @@ class SplitAttentionConv(HybridBlock):
         if self.drop:
             atten = self.drop(atten)
         atten = self.fc2(atten).reshape((0, self.radix, self.channels))
+        # fp16 add ?
+        #if config.fp_16:
+        #    atten = F.Cast(data=atten, dtype=np.float32)
         atten = self.rsoftmax(atten).reshape((0, -1, 1, 1))
+        #if config.fp_16:
+        #    atten = F.Cast(data=atten, dtype=np.float16)
         if self.radix > 1:
             atten = F.split(atten, self.radix, axis=1)
             outs = [F.broadcast_mul(att, split) for (att, split) in zip(atten, splited)]
@@ -76,6 +84,7 @@ class rSoftMax(nn.HybridBlock):
     def hybrid_forward(self, F, x):
         if self.radix > 1:
             x = x.reshape((0, self.cardinality, self.radix, -1)).swapaxes(1, 2)
+            #x = F.clip(F.softmax(x, axis=1), a_min=1e-9, a_max=1.0)
             x = F.softmax(x, axis=1)
             x = x.reshape((0, -1))
         else:

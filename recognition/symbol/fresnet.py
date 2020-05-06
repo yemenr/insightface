@@ -562,6 +562,8 @@ def resnet(units, num_stages, filter_list, num_classes, bottle_neck, fixed_param
     num_unit = len(units)
     assert(num_unit == num_stages)
     data = mx.sym.Variable(name='data', shape=input_shape)
+    if config.fp_16:
+        data = mx.sym.Cast(data=data, dtype=np.float16)
     if version_input==0:
       #data = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='bn_data', cudnn_off=default.memonger)
       data = mx.sym.identity(data=data, name='id')
