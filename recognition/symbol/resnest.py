@@ -89,7 +89,12 @@ class Bottleneck(HybridBlock):
         out = self.conv1(x)
         out = self.bn1(out)
         if self.dropblock_prob > 0:
+            if config.fp_16:
+                out = F.cast(data=out, dtype='float32')
+                self.dropblock1.cast('float32')
             out = self.dropblock1(out)
+            if config.fp_16:
+                out = F.cast(data=out, dtype='float16')
         out = self.relu1(out)
 
         if self.avd and self.avd_first:
@@ -98,12 +103,22 @@ class Bottleneck(HybridBlock):
         if self.use_splat:
             out = self.conv2(out)
             if self.dropblock_prob > 0:
+                if config.fp_16:
+                    out = F.cast(data=out, dtype='float32')
+                    self.dropblock2.cast('float32')
                 out = self.dropblock2(out)
+                if config.fp_16:
+                    out = F.cast(data=out, dtype='float16')
         else:
             out = self.conv2(out)
             out = self.bn2(out)
             if self.dropblock_prob > 0:
+                if config.fp_16:
+                    out = F.cast(data=out, dtype='float32')
+                    self.dropblock2.cast('float32')
                 out = self.dropblock2(out)
+                if config.fp_16:
+                    out = F.cast(data=out, dtype='float16')
             out = self.relu2(out)
 
         if self.avd and not self.avd_first:
@@ -116,7 +131,12 @@ class Bottleneck(HybridBlock):
             residual = self.downsample(x)
 
         if self.dropblock_prob > 0:
+            if config.fp_16:
+                out = F.cast(data=out, dtype='float32')
+                self.dropblock3.cast('float32')
             out = self.dropblock3(out)
+            if config.fp_16:
+                out = F.cast(data=out, dtype='float16')
 
         out = out + residual
         out = self.relu3(out)
@@ -247,9 +267,6 @@ class ResNet(HybridBlock):
                 input_size = _update_input_size(input_size, 2)
             
             self.flat = nn.Flatten()
-            self.drop = None
-            if final_drop > 0.0:
-                self.drop = nn.Dropout(final_drop)
 
     def _make_layer(self, stage_index, block, planes, blocks, strides=1, dilation=1,
                     pre_dilation=1, avg_down=False, norm_layer=None,
@@ -330,8 +347,6 @@ class ResNet(HybridBlock):
         x = self.layer4(x)
 
         x = self.flat(x)
-        if self.drop is not None:
-            x = self.drop(x)
 
         return x
 
@@ -365,7 +380,7 @@ def get_symbol(fixed_param_names):
     net = ResNet(Bottleneck, units, radix=radix, cardinality=cardinality, bottleneck_width=bottleneckWidth,
                  deep_stem=config.deepStem, avg_down=config.avgDown, stem_width=config.stemWidth,
                  avd=config.avd, avd_first=config.avdFirst, use_splat=config.useSplat, dropblock_prob=config.dropblockProb,
-                 final_drop=config.finalDrop, input_size=config.image_shape[0], norm_kwargs=norm_kwargs, name_prefix=('resnest_%d' % num_layers))
+                 final_drop=config.finalDrop, input_size=config.image_shape[0], norm_kwargs=norm_kwargs, last_gamma=True, name_prefix=('resnest_%d' % num_layers))
                  
     data = mx.sym.Variable(name='data')
     if config.fp_16:

@@ -294,9 +294,11 @@ def get_symbol(args):
     
     fc7 = noiseLogits * config.loss_s
 
+  ceFC7 = fc7
   if config.fp_16:
     fc7 = mx.sym.Cast(data=fc7, dtype=np.float32)
-    _fc7 = fc7 * config.scale16
+    ceFC7 = fc7
+    fc7 = fc7 * config.scale16
     #gt_label = mx.sym.Cast(data=gt_label, dtype=np.float32)
 
   if is_softmax:
@@ -304,7 +306,7 @@ def get_symbol(args):
     out_list.append(softmax)
     if config.ce_loss:
       #ce_loss = mx.symbol.softmax_cross_entropy(data=fc7, label = gt_label, name='ce_loss')/args.per_batch_size
-      body = mx.symbol.SoftmaxActivation(data=fc7)
+      body = mx.symbol.SoftmaxActivation(data=ceFC7)
       body = mx.symbol.log(body+1e-28)
       _label = mx.sym.one_hot(gt_label, depth = config.num_classes, on_value = -1.0, off_value = 0.0)
       body = body*_label
@@ -438,15 +440,23 @@ def train_net(args):
 
     if config.net_name=='fresnet' or config.net_name=='fmobilefacenet':
       initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="out", magnitude=2) #resnet style
+    elif config.net_name=='resnest':
+      initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="in", magnitude=2) #inception
     else:
       initializer = mx.init.Xavier(rnd_type='uniform', factor_type="in", magnitude=2)
     #initializer = mx.init.Xavier(rnd_type='gaussian', factor_type="out", magnitude=2) #resnet style
     _rescale = 1.0/args.ctx_num
+    clip_gradient = None
     if config.fp_16:
       _rescale /= config.scale16
+      clip_gradient = config.gradThres
     #opt = optimizer.SGD(learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale)#, multi_precision=config.fp_16)
-    opt = optimizer.create('sgd', learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale, multi_precision=config.fp_16)
+    opt = optimizer.create('nag', learning_rate=args.lr, momentum=args.mom, wd=args.wd, rescale_grad=_rescale, multi_precision=config.fp_16, clip_gradient=clip_gradient)
     _cb = mx.callback.Speedometer(args.batch_size, args.frequent)
+
+    if config.cos_lr:
+      num_batches = config.num_training_samples // args.batch_size
+      total_batches = default.end_epoch * num_batches
 
     ver_list = []
     ver_name_list = []
@@ -497,11 +507,16 @@ def train_net(args):
             opt.lr = args.lr
         
           targetSteps -= config.warmupSteps
-        for step in lr_steps:
-          if targetSteps==step:
-            opt.lr *= 0.1
-            print('lr change to', opt.lr)
-            break
+        
+        if config.cos_lr:
+          opt.lr  = 0.5 * args.lr * (1 + np.cos(np.pi * (targetSteps / total_batches)))
+          print('cos lr change to', opt.lr)
+        else:
+          for step in lr_steps:
+            if targetSteps==step:
+              opt.lr *= 0.1
+              print('step lr change to', opt.lr)
+              break
 
       _cb(param)
       if mbatch%1000==0:
