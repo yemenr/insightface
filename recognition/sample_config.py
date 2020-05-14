@@ -28,6 +28,14 @@ config.data_color = 0
 config.data_images_filter = 0
 config.count_flops = True
 config.noise_layer = False
+config.fp_16 = True
+config.useWarmup = False
+config.warmupSteps = 20000
+config.scale16 = 1
+config.gradThres = None
+config.add_stn = False
+config.cos_lr = True
+config.finalDrop = 0.4
 
 # network settings
 network = edict()
@@ -103,11 +111,64 @@ network.mnas025.emb_size = 256
 network.mnas025.net_output = 'GDC'
 network.mnas025.net_multiplier = 0.25
 
-network.vargfacenet = edict()
-network.vargfacenet.net_name = 'vargfacenet'
-network.vargfacenet.net_multiplier = 1.25
-network.vargfacenet.emb_size = 512
-network.vargfacenet.net_output='J'
+network.b0 = edict()
+network.b0.net_name = 'fefficientnet'
+
+network.r50sa = edict()
+network.r50sa.net_name = 'resnest'
+network.r50sa.emb_size = 512
+network.r50sa.num_layers = 50
+network.r50sa.bottleneckStr = '2s1x64d'
+network.r50sa.deepStem = False
+network.r50sa.avgDown = True
+network.r50sa.stemWidth = 64
+network.r50sa.avd = True
+network.r50sa.avdFirst = False
+network.r50sa.useSplat = True
+network.r50sa.dropblockProb = 0.0
+network.r50sa.finalDrop = 0.0
+
+network.r101sa = edict()
+network.r101sa.net_name = 'resnest'
+network.r101sa.emb_size = 512
+network.r101sa.num_layers = 101
+network.r101sa.bottleneckStr = '2s1x64d'
+network.r101sa.deepStem = False
+network.r101sa.avgDown = True
+network.r101sa.stemWidth = 64
+network.r101sa.avd = True
+network.r101sa.avdFirst = False
+network.r101sa.useSplat = True
+network.r101sa.dropblockProb = 0.1
+network.r101sa.finalDrop = 0.0
+
+network.r200sa = edict()
+network.r200sa.net_name = 'resnest'
+network.r200sa.emb_size = 512
+network.r200sa.num_layers = 200
+network.r200sa.bottleneckStr = '2s1x64d'
+network.r200sa.deepStem = False
+network.r200sa.avgDown = True
+network.r200sa.stemWidth = 64
+network.r200sa.avd = True
+network.r200sa.avdFirst = False
+network.r200sa.useSplat = True
+network.r200sa.dropblockProb = 0.1
+network.r200sa.finalDrop = 0.2
+
+network.r269sa = edict()
+network.r269sa.net_name = 'resnest'
+network.r269sa.emb_size = 512
+network.r269sa.num_layers = 269
+network.r269sa.bottleneckStr = '2s1x64d'
+network.r269sa.deepStem = False
+network.r269sa.avgDown = True
+network.r269sa.stemWidth = 64
+network.r269sa.avd = True
+network.r269sa.avdFirst = False
+network.r269sa.useSplat = True
+network.r269sa.dropblockProb = 0.1
+network.r269sa.finalDrop = 0.2
 
 # dataset settings
 dataset = edict()

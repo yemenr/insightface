@@ -57,7 +57,7 @@ def get_fc1(last_conv, num_classes, fc_type, input_channel=512):
     fc1 = body
   elif fc_type=='E':
     body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1', cudnn_off=default.memonger)
-    body = mx.symbol.Dropout(data=body, p=0.4)
+    body = mx.symbol.Dropout(data=body, p=config.finalDrop)
     fc1 = mx.sym.FullyConnected(data=body, num_hidden=num_classes, name='pre_fc1')
     fc1 = mx.sym.BatchNorm(data=fc1, fix_gamma=True, eps=2e-5, momentum=bn_mom, name='fc1', cudnn_off=default.memonger)
   elif fc_type=='FC':

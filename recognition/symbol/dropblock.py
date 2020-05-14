@@ -69,5 +69,5 @@ class DropBlockScheduler(object):
         assert (ratio >= 0 and ratio <= 1)
         apply_drop_prob = partial(set_drop_prob, ratio)
         self.net.apply(apply_drop_prob)
-        self.net.hybridize()
+        self.net.hybridize(static_alloc=True, static_shape=True)
 

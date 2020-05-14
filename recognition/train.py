@@ -64,6 +64,7 @@ def parse_args():
   parser.add_argument('--per-batch-size', type=int, default=default.per_batch_size, help='batch size in each context')
   parser.add_argument('--kvstore', type=str, default=default.kvstore, help='kvstore setting')
   parser.add_argument('--memonger', type=int, default=default.memonger, help='use memonger or not')
+  parser.add_argument('--end-epoch', type=int, default=default.end_epoch, help='use memonger or not')
   args = parser.parse_args()
   return args
 
@@ -456,7 +457,7 @@ def train_net(args):
 
     if config.cos_lr:
       num_batches = config.num_training_samples // args.batch_size
-      total_batches = default.end_epoch * num_batches
+      total_batches = args.end_epoch * num_batches
 
     ver_list = []
     ver_name_list = []
@@ -510,7 +511,8 @@ def train_net(args):
         
         if config.cos_lr:
           opt.lr  = 0.5 * args.lr * (1 + np.cos(np.pi * (targetSteps / total_batches)))
-          print('cos lr change to', opt.lr)
+          if targetSteps % 1000 == 0:
+              print('cos lr change to', opt.lr)
         else:
           for step in lr_steps:
             if targetSteps==step:

@@ -246,7 +246,7 @@ def test(data_set, mx_model, batch_size, nfolds=10, data_extra = None, label_sha
       #exe = sym.bind(_ctx, _arg ,args_grad=None, grad_req="null", aux_states=_aux)
       #exe.forward(is_train=False)
       #net_out = exe.outputs
-      _embeddings = net_out[0].asnumpy()
+      _embeddings = net_out[0].asnumpy().astype('float32')
       time_now = datetime.datetime.now()
       diff = time_now - time0
       time_consumed+=diff.total_seconds()
