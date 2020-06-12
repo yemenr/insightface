@@ -182,7 +182,12 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, pca = 0):
     return tpr, fpr, accuracy, val, val_std, far
 
 def load_bin(path, image_size):
-  bins, issame_list = pickle.load(open(path, 'rb'), encoding='bytes')#img bin & issame_list[6000]
+  try:
+    with open(path, 'rb') as f:
+      bins, issame_list = pickle.load(f) #py2
+  except UnicodeDecodeError as e:
+    with open(path, 'rb') as f:
+      bins, issame_list = pickle.load(f, encoding='bytes') #py3
   data_list = []
   for flip in [0,1]:
     data = nd.empty((len(issame_list)*2, 3, image_size[0], image_size[1]))
@@ -243,7 +248,7 @@ def test(data_set, mx_model, batch_size, nfolds=10, data_extra = None, label_sha
       #exe = sym.bind(_ctx, _arg ,args_grad=None, grad_req="null", aux_states=_aux)
       #exe.forward(is_train=False)
       #net_out = exe.outputs
-      _embeddings = net_out[0].asnumpy()
+      _embeddings = net_out[0].asnumpy().astype('float32')
       time_now = datetime.datetime.now()
       diff = time_now - time0
       time_consumed+=diff.total_seconds()
@@ -311,7 +316,7 @@ def test_badcase(data_set, mx_model, batch_size, name='', data_extra = None, lab
         db = mx.io.DataBatch(data=(_data,_data_extra), label=(_label,))
       model.forward(db, is_train=False)
       net_out = model.get_outputs()
-      _embeddings = net_out[0].asnumpy()
+      _embeddings = net_out[0].asnumpy().astype('float32')
       time_now = datetime.datetime.now()
       diff = time_now - time0
       time_consumed+=diff.total_seconds()
@@ -487,7 +492,7 @@ def dumpR(data_set, mx_model, batch_size, name='', data_extra = None, label_shap
         db = mx.io.DataBatch(data=(_data,_data_extra), label=(_label,))
       model.forward(db, is_train=False)
       net_out = model.get_outputs()
-      _embeddings = net_out[0].asnumpy()
+      _embeddings = net_out[0].asnumpy().astype('float32')
       time_now = datetime.datetime.now()
       diff = time_now - time0
       time_consumed+=diff.total_seconds()

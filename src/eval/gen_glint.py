@@ -44,7 +44,8 @@ def get_feature(buffer):
   idx = 0
   for item in buffer:
     img = face_preprocess.read_image(item[0], mode='rgb')
-    img = face_preprocess.preprocess(img, bbox=None, landmark=item[1], image_size='%d,%d'%(image_shape[1], image_shape[2]))
+    # src label alignment
+    #img = face_preprocess.preprocess(img, bbox=None, landmark=item[1], image_size='%d,%d'%(image_shape[1], image_shape[2]))
     img = np.transpose( img, (2,0,1) )
     attempts = [0,1] if use_flip else [0]
     for flipid in attempts:
@@ -56,7 +57,7 @@ def get_feature(buffer):
   data = mx.nd.array(input_blob)
   db = mx.io.DataBatch(data=(data,))
   net.model.forward(db, is_train=False)
-  _embedding = net.model.get_outputs()[0].asnumpy()
+  _embedding = net.model.get_outputs()[0].asnumpy().astype('float32')
   if emb_size==0:
     emb_size = _embedding.shape[1]
     print('set emb_size to ', emb_size)

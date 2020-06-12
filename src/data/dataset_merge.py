@@ -272,7 +272,8 @@ def main(args):
     for _idx in range(a,b):
       s = imgrec.read_idx(_idx)
       _header, _content = mx.recordio.unpack(s)
-      nheader = mx.recordio.IRHeader(0, nlabel, idx, 0)
+      nHeaderLabel = nlabel if len(_header.label)>1 else (nlabel, _header.label[1])
+      nheader = mx.recordio.IRHeader(0, nHeaderLabel, idx, 0)
       newIdFile.write("%d, %d\n" % (idx, _header.id))
       s = mx.recordio.pack(nheader, _content)
       writer.write_idx(idx, s)
